@@ -30,7 +30,9 @@ devtools::install_github("tomwenseleers/L0glm")
 
 Getting Started
 ---------------
-
+```
+library(L0glm)
+```
 Simulate some data
 ```
 sim <- simulate_spike_train()
