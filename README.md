@@ -1,4 +1,4 @@
-# L0glm version 0.0.0.9000
+L0glm version 0.0.0.9000
 ==========================
 
 L0glm is an R package to fit L0 penalized GLMs with nonnegativity constraints on the coefficients. Additionally, the package includes functionality to perform inference on the fitted coefficients. 
