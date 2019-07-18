@@ -1,4 +1,4 @@
-L0glm version 0.0.0.9000
+L0glm version 0.1.0.9000
 ==========================
 
 L0glm is an R package to fit L0 penalized GLMs with nonnegativity constraints on the coefficients. Additionally, the package includes functionality to perform inference on the fitted coefficients. 
@@ -64,9 +64,22 @@ plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm.out, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates")
 ```
 
+Benchmark with other R packages 
+-------------------------------
+
+# Compare L0glm with glm
+
+# Compare L0glm with Lasso, MC+, SCAD
+
+# Compare with L0ara, bestsubset, L0Learn
+
+Application example
+-------------------
+
+Show L0glm application for GC-MS mass calibration ?
 
 License
 -------
-The export package is licensed under the GPLv2.
+The L0glm package is licensed under the GPLv2.
 
 
