@@ -109,7 +109,7 @@ k should be a numeric indicating the number of folds to use).}
 \item{tune.crit}{the criterion based on which to select the optimal lambda. Should be one of
 \code{"all"}, \code{"bic"}, \code{"aic"}, \code{"loglik"}, \code{"loocv"},
 \code{"rss"}, \code{"aicc"}, \code{"ebic"}, \code{"hq"}, \code{"ric"},
-\code{"mric"}, \code{"cic"}, \code{"bicg"}, \code{"bicq"}) # TODO adapt}
+\code{"mric"}, \code{"cic"}, \code{"bicg"}, \code{"bicq"})}
 
 \item{seed}{a seed to use in case of \code{"k-fold"} CV.}
 
@@ -128,14 +128,9 @@ elements:
 no constraint was applied or "nonneg" for nonnegative fits.}
 \item{\code{converged.iwls}}{Did the last iteration of IWLS converged?}
 \item{\code{converged.l0}}{Did the adaptive ridge converged?}
-\item{\code{deviance}}{a list containing:}
-\itemize{
-\item{\code{residual.df}: residual degrees of freedom of the model}
-\item{\code{null.df}: residual degrees of freedom of the null model}
-\item{\code{residual.deviance}: \eqn{D_{res} = 2 (loglik(saturated) - loglik(model))}}
-\item{\code{null.deviance}: \eqn{D_{null} = 2 (loglik(saturated) - loglik(null))}}
-\item{\code{D.squared}: explained deviance = \eqn{1 - \frac{D_{res}}{D_{null}}}}#'
-}
+\item{\code{deviance}}{a list containing degrees of freedom and deviance
+for the fitted model and the null model. The goodness of fit is computed as:
+\eqn{D^2 = 1 - \frac{D_{res}}{D_{null}}}}
 \item{\code{df}}{a list containing the \code{edf} effective degrees of freedom,
 and \code{rdf} residual degree of freedom of the fitted model.}
 \item{\code{eta}}{a vector with the fitted response on the link scale.}
@@ -150,7 +145,10 @@ number of iterations performed for every IWLS fit.}
 \item{\code{iter.l0}}{The number of adaptive ridge iterations.}
 \item{\code{lambda}}{The lambda used for the the adaptive ridge. This is a
 vector of length \code{p} which may contain zeros for unpenalized coefficients.}
-\item{\code{lambda.tune}}{TODO}
+\item{\code{lambda.tune}}{a list generated during lambda tuning (if required).
+The list contains the sequence of lambdas, the estimated coefficients for
+every lambda (except if \code{tune.meth == "k-fold"}), the IC associated to
+every lambda, and the selected lambda.}
 \item{\code{lambda.w}}{The converged lambda weights from the adaptive ridge
 iteration. This is a vector of length \code{p} with coefficient specific
 weights.}
@@ -166,7 +164,7 @@ of length \code{n}.}
 Fit a generalized linear model with nonnegativity contraints and ridge, adaptive ridge,
 or best subset (L0) penalty on the coefficients. The function uses an iteratively reweighted
 nonnegative least squares (IWNNLS) algorithm, which was adapted from the
-regular IRLS algorithms to solve GLMs (cf. McCullach & Nelder 1989).
+regular IRLS algorithms to solve GLMs (McCullach & Nelder 1989).
 }
 \details{
 \strong{Structure of the algorithm}
@@ -179,12 +177,20 @@ algorithm contains 3 main nest loops. From high level to low level:
 \itemize{
 \item{\strong{Adaptive ridge for L0 penalty:} the L0 penalty is approximated
 by iteratively fitting an adaptive ridge and update the penalty weights based
-on the fitted coefficient from the previous update. The penalty weights are
-updated using the formula \eqn{\frac{1}{(|\beta|^{\gamma} + \delta^{\gamma})}}
-(Frommlet et Nuel 2016). When \code{control.l0$maxit == 1}, this boils
-down}
-\item{\strong{GLM fitting using IWLS:} TODO + TODO ref}
-\item{\strong{Block-wise (NN)LS fitting:} TODO}
+on the fitted coefficient from the previous update  (Frommlet et Nuel 2016).
+The penalty weights are updated using the formula
+\eqn{\frac{1}{(|\beta|^{\gamma} + \delta^{\gamma})}}.
+When \code{control.l0$maxit == 1}, this boils down to a simple ridge penalty.
+Furthermore, with \code{start != NULL}, an simple adaptive ridge is used where
+\code{start} is considered as the coefficient priors.}
+\item{\strong{GLM fitting using IWLS:} within every AR loop, a GLM is fit. If
+the error family is Gaussian, this is a (nonnegative) least square regression.
+For other error families and other link function than identity, the GLM is
+solved using iteratively reweighted least squares (IWLS, McCullach & Nelder
+1989). To include ridge regularization, the covariate matrix is augmented
+with the diagonal matrix \eqn{\sqrt{\lambda} \bm{I}}, and the response is
+augmented with 0s accordingly.}
+\item{\strong{Block-wise (NN)LS fitting:} TODO needed?}
 }
 
 Information criteria and other goodness of fit of measures are computed based
@@ -193,6 +199,7 @@ on the fitted coefficients.
 \strong{Lambda tuning}
 
 Lambda can be specified in 3 ways:
+
 
 \itemize{
 \item{\strong{Scalar}: lambda is the penalty factor used for the ridge,
@@ -208,16 +215,33 @@ coefficients and \code{n x length(lambda)} matrix of fitted values.}
 
 \item{\strong{Character}}: In the case that L0 penalty is required (\emph{i.e.}
 \code{control.l0$maxit > 1}), lambda can be supplied as the information
-criterion to optimize. Possible values are \code{"aic"} (\eqn{\lambda = 2}),
-\code{"bic"} (\eqn{\lambda = ln(n)}), \code{"ebic"} (\eqn{\lambda = 2 ln(p)   (1-ln(n)/(2 * ln(p)))*2*log(p)}), TODO adapt ebic
-\code{"hq"} (\eqn{\lambda = 2 ln(ln(n))}), or \code{"bicq"} (\eqn{\lambda =
-ln(n) - 2 ln(\frac{q}{1-q})}).
-
+criterion to optimize. Possible values are
+\code{"aic"} (\eqn{\lambda = 2}),
+\code{"bic"} (\eqn{\lambda = ln(n)}),
+\code{"hq"} (\eqn{\lambda = 2 ln(ln(n))}), or
+\code{"bicq"} (\eqn{\lambda = ln(n) - 2 ln(\frac{q}{1-q})}, where q = 0.25).
 }
 
-The lambda tuning relies on different methods: TODO
+The lambda tuning can be performed using 3 different methods:
+\itemize{
+\item{When \code{tune.meth == "trainval"}, lambda is tuned using a training
+and validation set. The training set will contain 90\% of the observations.
+The best lambda is the lambda that leads to the highest performance according
+to the IC measure computed on the validation set.}
+\item{When \code{tune.meth == "IC"}, lambda is tuned on the full dataset. The
+lambda associated with the best IC value will be selected. It is not
+recommended using this method with \code{tune.crit == "rss"|"loglik"} since
+it cannot overcome overfitting.}
+\item{When \code{tune.meth == "k-fold"} (where \code{k} should be a numeric),
+the lambda is tuned using k-fold cross-validation. The data is split in k
+chunks where each chunk serves as a validation sets while the remaining data
+serves as training set. The IC measure across folds are averaged. For LOOCV,
+use \code{tune.meth == "IC"} and \code{tune.crit == "loocv"}.}
+}
 
-Lambda upper bound: TODO + TODO ref (L0Learn?)
+To avoid unnecessary computations, the algorithm finds the maximal lambda for
+which all coefficients are 0. This is given by
+\deqn{\lambda_{max} = \max_{i = 1,\dots,p}~ 1/2  (X^\top_i X_i)^{-1} (X^\top_i y)^2}
 }
 \section{Functions}{
 \itemize{
@@ -281,40 +305,40 @@ plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm4, a.true = sim$a,
 \donttest{ # Code below is computationally costly
 # Case V: fit nonnegative identity link Poisson GLM with L0 penalty and an
 #           optimized lambda using IC on full data
-L0glm5 <- L0glm(X = X, y = y, family = poisson(identity),
+L0glm5 <- L0glm(X = X, y = y, family = poisson(identity), intercept = FALSE,
                 lambda = 10^seq(-3,3, length.out = 51), # Use arbitrary sequence
                 tune.crit = "bic", tune.meth = "IC", nonnegative = TRUE,
-                control.iwls = list(maxit = 100), # default
+                control.iwls = list(maxit = 1), # default
                 control.l0 = list(maxit = 100)) # default
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm5, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates (BIC tuning)")
 
 # Case VI: fit nonnegative identity link Poisson GLM with L0 penalty and an
 #           optimized lambda using training and validation set
-L0glm6 <- L0glm(X = X, y = y, family = poisson(identity),
-                lambda = 10^seq(-3,3, length.out = 51), # Use arbitrary sequence
+L0glm6 <- L0glm(X = X, y = y, family = poisson(identity), intercept = FALSE,
+                lambda = 10^seq(-1,1, length.out = 51), # Use arbitrary sequence
                 tune.crit = "bic", tune.meth = "trainval", nonnegative = TRUE,
-                control.iwls = list(maxit = 100), # default
-                control.l0 = list(maxit = 100)) # default
+                control.iwls = list(maxit = 1), # default
+                control.l0 = list(maxit = 1)) # default
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm6, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates (3-fold CV)")
 
 # Case VII: fit nonnegative identity link Poisson GLM with L0 penalty and an
 #           optimized lambda using 3-fold CV
-L0glm7 <- L0glm(X = X, y = y, family = poisson(identity),
+L0glm7 <- L0glm(X = X, y = y, family = poisson(identity), intercept = FALSE,
                 lambda = 10^seq(-3,3, length.out = 51), # Use arbitrary sequence
                 tune.crit = "bic", tune.meth = "3-fold", nonnegative = TRUE,
-                control.iwls = list(maxit = 100), # default
+                control.iwls = list(maxit = 1), # default
                 control.l0 = list(maxit = 100)) # default
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm7, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates (3-fold CV)")
 
 # Case VIII: fit nonnegative identity link Poisson GLM with L0 penalty and an
 #           optimized lambda using LOOCV
-L0glm8 <- L0glm(X = X, y = y, family = poisson(identity),
+L0glm8 <- L0glm(X = X, y = y, family = poisson(identity), intercept = FALSE,
                 lambda = 10^seq(-3,3, length.out = 51), # Use arbitrary sequence
                 tune.meth = "loocv", nonnegative = TRUE,
-                control.iwls = list(maxit = 100), # default
+                control.iwls = list(maxit = 1), # default
                 control.l0 = list(maxit = 100)) # default
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm8, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates (LOOCV)")

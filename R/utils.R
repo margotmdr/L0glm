@@ -153,10 +153,8 @@ compute.ic <- function(y, y.hat, w, fit){
     # Compute the information criteria
     # See Zhang & Chen 2010
     aic <- min2LL + 2*k # Akaike information criterion
-
     aicc <- ifelse(n > k, min2LL + 2*k*n/(n-k), NA) # corrected AIC
     bic <- min2LL + log(n)*k # Baysesian information criterion
-
     xi <- 1-log(n)/(2*log(p))
     ebic <- bic + 2*xi*k*log(p) # extenved BIC
     c <- 2 # TODO default, add as a parameter

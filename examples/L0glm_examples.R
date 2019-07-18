@@ -42,40 +42,40 @@ plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm4, a.true = sim$a,
 \donttest{ # Code below is computationally costly
 # Case V: fit nonnegative identity link Poisson GLM with L0 penalty and an
 #           optimized lambda using IC on full data
-L0glm5 <- L0glm(X = X, y = y, family = poisson(identity),
+L0glm5 <- L0glm(X = X, y = y, family = poisson(identity), intercept = FALSE,
                 lambda = 10^seq(-3,3, length.out = 51), # Use arbitrary sequence
                 tune.crit = "bic", tune.meth = "IC", nonnegative = TRUE,
-                control.iwls = list(maxit = 100), # default
+                control.iwls = list(maxit = 1), # default
                 control.l0 = list(maxit = 100)) # default
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm5, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates (BIC tuning)")
 
 # Case VI: fit nonnegative identity link Poisson GLM with L0 penalty and an
 #           optimized lambda using training and validation set
-L0glm6 <- L0glm(X = X, y = y, family = poisson(identity),
-                lambda = 10^seq(-3,3, length.out = 51), # Use arbitrary sequence
+L0glm6 <- L0glm(X = X, y = y, family = poisson(identity), intercept = FALSE,
+                lambda = 10^seq(-1,1, length.out = 51), # Use arbitrary sequence
                 tune.crit = "bic", tune.meth = "trainval", nonnegative = TRUE,
-                control.iwls = list(maxit = 100), # default
-                control.l0 = list(maxit = 100)) # default
+                control.iwls = list(maxit = 1), # default
+                control.l0 = list(maxit = 1)) # default
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm6, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates (3-fold CV)")
 
 # Case VII: fit nonnegative identity link Poisson GLM with L0 penalty and an
 #           optimized lambda using 3-fold CV
-L0glm7 <- L0glm(X = X, y = y, family = poisson(identity),
+L0glm7 <- L0glm(X = X, y = y, family = poisson(identity), intercept = FALSE,
                 lambda = 10^seq(-3,3, length.out = 51), # Use arbitrary sequence
                 tune.crit = "bic", tune.meth = "3-fold", nonnegative = TRUE,
-                control.iwls = list(maxit = 100), # default
+                control.iwls = list(maxit = 1), # default
                 control.l0 = list(maxit = 100)) # default
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm7, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates (3-fold CV)")
 
 # Case VIII: fit nonnegative identity link Poisson GLM with L0 penalty and an
 #           optimized lambda using LOOCV
-L0glm8 <- L0glm(X = X, y = y, family = poisson(identity),
+L0glm8 <- L0glm(X = X, y = y, family = poisson(identity), intercept = FALSE,
                 lambda = 10^seq(-3,3, length.out = 51), # Use arbitrary sequence
                 tune.meth = "loocv", nonnegative = TRUE,
-                control.iwls = list(maxit = 100), # default
+                control.iwls = list(maxit = 1), # default
                 control.l0 = list(maxit = 100)) # default
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm8, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates (LOOCV)")
