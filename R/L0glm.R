@@ -12,7 +12,7 @@
 #' nonnegative least squares (IWNNLS) algorithm, which was adapted from the
 #' regular IRLS algorithms to solve GLMs (McCullach & Nelder 1989).
 #'
-#' @param X a design matrix of dimension \code{n * p}.
+#' @param X a covariate matrix of dimension \code{n * p}.
 #' @param y a vector of obersvation of length \code{n}.
 #' @param weights a vector of observation weights ("prior weights") of length
 #' \code{n}.
@@ -474,6 +474,7 @@ L0glm.fit <- function(X, y,
   n <- nrow(X)
   p <- ncol(X)
   if(length(lambda) == 1) lambda <- rep(lambda, p)
+  y <- as.vector(y)
 
   # The adaptive ridge loop
   mask <- rep(FALSE, p)
@@ -617,9 +618,11 @@ glm.iwls <- function(X, y, weights, family,
 
     # Weighted LS update, with optional nonnegativity constraints
     # TODO talk with Tom
-    if(is.null(control.fit$block.size)) control.fit$block.size <- sum(!converged_set)
+    if(is.null(control.fit$block.size)) control.fit$block.size <- p
+    block.ids <- ceiling((1:p)/control.fit$block.size)
     beta[!converged_set] <- block.fit(X = Xaug[good,!converged_set,drop=F]*sqrt(W[good]),
                                       y = zaug[good]*sqrt(W[good]),
+                                      block.id = block.ids[!converged_set],
                                       nonnegative = nonnegative,
                                       control = control.fit)
     # TODO clean this

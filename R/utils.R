@@ -227,6 +227,7 @@ AL.weights <- function(beta, delta){
 #   coefs:  vector of initial coefficients
 #   nonnegative:  a logical indicating whether nonnegative constraints should
 #     be applied.
+#   block.id: a vector indicating to which block a covariate belongs to.
 #   control: a list with control parameters of the algorithm
 #     block.size: amount of covariate that are fit simulatenously in each block
 #                 of the coordinate descent procedure
@@ -236,19 +237,32 @@ AL.weights <- function(beta, delta){
 # OUTPUT
 #  coefs:   the fitted coefficients
 block.fit <- function(y, X, coefs = rep(0, ncol(X)), nonnegative = FALSE,
-                      control = list(block.size = NULL, maxit = 10, tol = 1E-7)){
+                      block.id = NULL, control = list(block.size = NULL,
+                                                      maxit = 10, tol = 1E-7)){
   n <- length(y)
   p <- ncol(X)
   if(is.null(control$block.size) || control$block.size > p) control$block.size <- p
-  block.id <- ceiling((1:p)/control$block.size)
-  block.n <- max(block.id)
-  if(block.n == 1) control$maxit <- 1
+  if(is.null(block.id)) block.id <- ceiling((1:p)/control$block.size)
+
+  interc.ind <- which(grepl(colnames(X), pattern = "intercept", ignore.case = TRUE))
+  if(max(block.id) == 1){
+    control$maxit <- 1
+  } else if(length(interc.ind) != 0){ # Rearrange blocks to account for intercepts
+    if(nonnegative){ # fit intercepts at the end
+      block.id[interc.ind] <- max(block.id) + 1
+    } else { # start with fitting intercept
+      block.id <- block.id + 1
+      block.id[interc.ind] <- 1
+    }
+  }
+  blocks <- sort(unique(block.id))
+
   iter <- 1
   while(iter <= control$maxit){
     coefs0 <- coefs
-    for(i in sample.int(block.n)){
+    for(i in blocks){
       # Compute residuals
-      if(block.n > 1){
+      if(length(blocks) > 1){
         A <- X[, block.id == i,drop=F]
         is.zero <- Matrix::rowSums(A) == 0
         A <- A[!is.zero,,drop=F]
@@ -263,15 +277,20 @@ block.fit <- function(y, X, coefs = rep(0, ncol(X)), nonnegative = FALSE,
       if(nonnegative){
         coefs[block.id == i] <- nnls(A = A, b = b)$x
       } else {
-        coefs[block.id == i] <- lm.fit(x = as.matrix(A), y = b, tol = 1E-07)$coefficients
+        coefs[block.id == i] <- lm.fit(x = as.matrix(A), y = as.vector(b), tol = 1E-07)$coefficients
         coefs[is.na(coefs) | is.infinite(coefs)] <- 0
       }
+
+
+      plot(coefs, type = "h", main = i)
+      Sys.sleep(0.1)
     }
     conv <- sqrt(sum((coefs0 - coefs)^2))/sqrt(sum((coefs0)^2)) < control$tol || all(coefs == 0)  # ||beta_{k-1} - beta_k||_2 / ||beta_{k-1}||_2
     if(conv) break
     iter <- iter + 1
   }
-  if(block.n > 1 && !conv) warning("Algorithm did not converge, maybe increase control.fit$maxit or control.fit$block.size")
+  if(length(blocks) > 1 && !conv) warning("Algorithm did not converge, maybe increase control.fit$maxit or control.fit$block.size")
+
   return(coefs)
 }
 
