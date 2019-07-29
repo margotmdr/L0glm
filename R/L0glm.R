@@ -12,8 +12,10 @@
 #' nonnegative least squares (IWNNLS) algorithm, which was adapted from the
 #' regular IRLS algorithms to solve GLMs (McCullach & Nelder 1989).
 #'
-#' @param X a covariate matrix of dimension \code{n * p}.
-#' @param y a vector of obersvation of length \code{n}.
+#' @param family
+#' TODO
+#' @param data
+#' TODO
 #' @param weights a vector of observation weights ("prior weights") of length
 #' \code{n}.
 #' @param family a description of the error distribution and link function to be
@@ -22,8 +24,8 @@
 #' \code{stats::family} for details of family functions.)
 #' @param start a vector of starting values for the coefficients to estimate.
 #' Must be of length \code{p}.
-#' @param intercept whether or not to include a constant intercept term in the
-#' provided design matrix X. The intercept is not penalized.
+#' @param contrasts
+#' TODO
 #' @param lambda either a scalar, a vector of numerics, or a character (see
 #' details). Set \code{lambda = 0} to disable penalization.
 #' @param no.pen
@@ -244,9 +246,12 @@
 #' @example examples/L0glm_examples.R
 #'
 #' @export
-L0glm <- function(X, y, weights = rep(1,length(y)),
+L0glm <- function(formula,
+                  data = NULL,
+                  weights = rep(1,length(y)),
                   family = gaussian(identity),
-                  start=NULL, intercept = TRUE,
+                  start = NULL,
+                  contrasts = NULL,
                   lambda = 0, no.pen = 0,
                   nonnegative = FALSE,
                   control.l0 = list(),
@@ -261,6 +266,33 @@ L0glm <- function(X, y, weights = rep(1,length(y)),
                   verbose = TRUE){
 
   call0 <- match.call()
+
+  # Extract data structure from the formula (code taken from stats::glm)
+  if (is.null(data)) data <- environment(formula)
+  mf <- match.call(expand.dots = FALSE)
+  m <- match(c("formula", "data", "weights"), names(mf), 0L)
+  mf <- mf[c(1L, m)]
+  mf$drop.unused.levels <- TRUE
+  mf[[1L]] <- quote(stats::model.frame)
+  mf <- eval(mf, parent.frame())
+  mt <- attr(mf, "terms")
+  # Get the response variable
+  y <- model.response(mf, "any")
+  if (length(dim(y)) == 1L) {
+    nm <- rownames(y)
+    dim(y) <- NULL
+    names(y) <- nm
+  }
+  # Get the design matrix
+  X <- if (!is.empty.model(mt)){
+    model.matrix(mt, mf, contrasts)
+  } else {
+    matrix(NA, length(y), 0L)
+  }
+  intercept <- as.logical(attr(mt, "intercept"))
+  if(intercept) no.pen <- c(0, no.pen)
+
+  # Get control parameters
   control.l0 <- do.call("control.l0.gen", control.l0)
   control.iwls <- do.call("control.iwls.gen", control.iwls)
   control.fit <- do.call("control.fit.gen", control.fit)
@@ -278,13 +310,6 @@ L0glm <- function(X, y, weights = rep(1,length(y)),
   if(is.function(family)) family <- family()
   if(family$family == "gaussian" && family$link == "identity") control.iwls$maxit <- 1 # with gaussian identity loss we end up doing single nnls iteration
   if(family$family == "poisson") y <- as.integer(y)
-
-  # Add an intercept if required
-  if(intercept){
-    X <- cbind(`(Intercept)` = 1, X)
-    no.pen <- unique(c(1, no.pen + 1)) # No penalization of the intercept
-  }
-  if(is.null(colnames(X))) colnames(X) <- paste0("X", 1:p)
 
   # Get lambda with or without cross-validation
   if(any(lambda < 0)) stop("Negative lambda not allowed")
@@ -328,7 +353,7 @@ L0glm <- function(X, y, weights = rep(1,length(y)),
     tune.crit <- NA
     if(length(lambda) > 1){
       fits <- lapply(lambda, function(l){
-        l <- rep(l, p + intercept)
+        l <- rep(l, p)
         l[no.pen] <- 0
         fit <- L0glm.fit(X = X, y = y, weights = weights, family = family,
                          lambda = l, start = start, nonnegative = nonnegative,
@@ -374,7 +399,7 @@ L0glm <- function(X, y, weights = rep(1,length(y)),
     stop("'tune.meth' should be one of: none, trainval, IC, loocv, k-fold (where k should be a numeric indicating the number of folds to use)")
   }
   lambda0 <- lambda
-  lambda <- rep(lambda, p + intercept)
+  lambda <- rep(lambda, p)
   lambda[no.pen] <- 0
 
   if(verbose) cat(paste0("Tuned lambda value: ", lambda0, "\n\n"))
@@ -437,16 +462,16 @@ L0glm <- function(X, y, weights = rep(1,length(y)),
   # R2 is computed on the adjusted scale using the optimal weights from the last
   # iteration of the IWLS.
   # TODO shall we include this ?
-    # eta <- fit$eta # Sample R2 (the variance is estimated from the model fit of the last IRLS iteration)
-    # # eta <- X %*% coefficients.true # Population R2 (true variance is known)
-    # z <- eta + (y - fit$fitted.values)/family$mu.eta(eta) # = X %*% beta + (y - g.inv(mu))/g'(X %*% beta)
-    # z.fit <- family$linkfun(fit$fitted.values) # Fitted values on the link scale
-    # z.null <- family$linkfun(fit.null$fitted.values)
-    # w <- weights * as.vector(family$mu.eta(eta)^2 / family$variance(family$linkinv(eta))) # IWLS weights from last iteration or from true model
-    # mss <- sum(w * (z.fit - z.null)^2) # model sums of squares
-    # tss <- sum(w * (z - z.null)^2) # total sums of squares
-    # fit$R.squared <- list(R.squared = mss/tss, # = Model SS / Total SS
-    #                       type = ifelse(is.null(coefficients.true), "sample", "population"))
+  # eta <- fit$eta # Sample R2 (the variance is estimated from the model fit of the last IRLS iteration)
+  # # eta <- X %*% coefficients.true # Population R2 (true variance is known)
+  # z <- eta + (y - fit$fitted.values)/family$mu.eta(eta) # = X %*% beta + (y - g.inv(mu))/g'(X %*% beta)
+  # z.fit <- family$linkfun(fit$fitted.values) # Fitted values on the link scale
+  # z.null <- family$linkfun(fit.null$fitted.values)
+  # w <- weights * as.vector(family$mu.eta(eta)^2 / family$variance(family$linkinv(eta))) # IWLS weights from last iteration or from true model
+  # mss <- sum(w * (z.fit - z.null)^2) # model sums of squares
+  # tss <- sum(w * (z - z.null)^2) # total sums of squares
+  # fit$R.squared <- list(R.squared = mss/tss, # = Model SS / Total SS
+  #                       type = ifelse(is.null(coefficients.true), "sample", "population"))
 
   # Return solution
   fit <- fit[sort(names(fit))]
@@ -679,7 +704,8 @@ glm.iwls <- function(X, y, weights, family,
 # - allow for formula interface
 # - allow for an offset ?
 # - allow for some covariates to be constrained to nonnegativity, use QP for this
-# - use super function to perform nn.reg, nn.ridge, nn.adaptive.ridge
+# - make super function to perform nn.reg, nn.ridge, nn.adaptive.ridge
+# - Explore standardization of y and X and inlfuence on lambda selection vs theoretical lambda
 
 
 #' Set parameters for L0glm algorithm

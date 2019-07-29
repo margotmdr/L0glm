@@ -87,8 +87,37 @@ L0glm.inference <- function(fit, level = 0.95, boot.repl = 200,
                             control.l0, control.iwls, control.fit,
                             verbose = TRUE){
 
-  X <- eval(fit$call$X)
-  y <- eval(fit$call$y)
+  # X <- eval(fit$call$X)
+  # y <- eval(fit$call$y)
+  # if(eval(fit$call$intercept)){
+  #   X <- cbind(`(Intercept)` = 1, X) # Add intercept if needed
+  # }
+
+  # Extract data structure from the formula (code taken from stats::glm)
+  formula <- eval(fit$call$formula)
+  data <- eval(fit$call$data)
+  mf <- fit$call
+  if (is.null(data)) data <- environment(formula)
+  m <- match(c("formula", "data", "weights"), names(mf), 0L)
+  mf <- mf[c(1L, m)]
+  mf$drop.unused.levels <- TRUE
+  mf[[1L]] <- quote(stats::model.frame)
+  mf <- eval(mf, parent.frame())
+  mt <- attr(mf, "terms")
+  # Get the response variable
+  y <- model.response(mf, "any")
+  if (length(dim(y)) == 1L) {
+    nm <- rownames(y)
+    dim(y) <- NULL
+    names(y) <- nm
+  }
+  # Get the design matrix
+  X <- if (!is.empty.model(mt)){
+    model.matrix(mt, mf, contrasts)
+  } else {
+    matrix(NA, length(y), 0L)
+  }
+  intercept <- as.logical(attr(mt, "intercept"))
 
   control.l0 <- do.call("control.l0.gen", control.l0)
   control.iwls <- do.call("control.iwls.gen", control.iwls)
@@ -158,7 +187,7 @@ L0glm.inference <- function(fit, level = 0.95, boot.repl = 200,
     }
     out$boot.result <- boot(data = y, X = X, wts = fit$prior.weights, family = fam,
                             lambda = fit$lambda, start = fit$prior.coefficients,
-                            nonnegative = ifelse(out$constraint == "nonneg", TRUE, FALSE),
+                            nonnegative = ifelse(out$constraint == "none", FALSE, TRUE),
                             control.l0 = control.l0, control.iwls = control.iwls,
                             control.fit = control.fit, post.filter.fn = fit$post.filter.fn,
                             # boot arguments

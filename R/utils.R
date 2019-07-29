@@ -281,15 +281,15 @@ block.fit <- function(y, X, coefs = rep(0, ncol(X)), nonnegative = FALSE,
         coefs[is.na(coefs) | is.infinite(coefs)] <- 0
       }
 
-
-      plot(coefs, type = "h", main = i)
-      Sys.sleep(0.1)
+      # TODO delete
+      # plot(coefs, type = "h", main = i)
+      # Sys.sleep(0.1)
     }
     conv <- sqrt(sum((coefs0 - coefs)^2))/sqrt(sum((coefs0)^2)) < control$tol || all(coefs == 0)  # ||beta_{k-1} - beta_k||_2 / ||beta_{k-1}||_2
     if(conv) break
     iter <- iter + 1
   }
-  if(length(blocks) > 1 && !conv) warning("Algorithm did not converge, maybe increase control.fit$maxit or control.fit$block.size")
+  if(control$maxit > 1 && !conv) warning("Algorithm did not converge, maybe increase control.fit$maxit or control.fit$block.size")
 
   return(coefs)
 }
@@ -347,8 +347,9 @@ plot_L0glm_benchmark <- function(x, y, fit, inference = NULL, a.true, ...){
   a.fit <- fit$coefficients
   if(!is.null(names(a.fit))){
     int.ind <- grepl("Intercept", names(a.fit))
-    fit$lower <- fit$lower[!int.ind]
-    fit$upper <- fit$upper[!int.ind]
+    inference$CI.lower <- inference$CI.lower[!int.ind]
+    inference$CI.upper <- inference$CI.upper[!int.ind]
+    inference$p.value <- inference$p.value[!int.ind]
     a.fit <- a.fit[!int.ind]
   }
   # transf <- function(x) sqrt(x) # transform data for better rendering
