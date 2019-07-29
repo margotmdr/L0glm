@@ -87,12 +87,6 @@ L0glm.inference <- function(fit, level = 0.95, boot.repl = 200,
                             control.l0, control.iwls, control.fit,
                             verbose = TRUE){
 
-  # X <- eval(fit$call$X)
-  # y <- eval(fit$call$y)
-  # if(eval(fit$call$intercept)){
-  #   X <- cbind(`(Intercept)` = 1, X) # Add intercept if needed
-  # }
-
   # Extract data structure from the formula (code taken from stats::glm)
   formula <- eval(fit$call$formula)
   data <- eval(fit$call$data)
