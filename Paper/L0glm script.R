@@ -12,6 +12,7 @@ setwd("D:/Documents/GitHub/L0glm/Paper")
 library(L0glm)
 library(microbenchmark)
 library(export)
+graph2ppt(file = "Github/graphs") # Initialize the ppt file
 
 
 ####---- SHOWCASE ON SIMULATED DATA ----####
@@ -81,7 +82,7 @@ abs(df$coef.glm - df$coef.L0glm)
 plot(df$coef.L0glm, col = "green4", pch = 16, type = "b", ylab = "Estimate",
      main = "Compare coefficients estimate between glm (red) and L0glm (green)")
 points(df$coef.glm, col = "red2", pch = 16, type = "b")
-graph2ppt(file = "Github/graphs")
+graph2ppt(file = "Github/graphs", append = TRUE)
 
 # Conclusion
 # Both algorithms give almost exactly the same solution (up to 2E-15). The
@@ -125,15 +126,12 @@ microbenchmark(
 df <- data.frame(coef.glmnet = coef(glmnet_fit, s = 1)[-1], # first element is an empty intercept
                  coef.L0glm = coef(L0glm_fit),
                  coef.true = beta)
-norm(df$coef.L0glm - df$coef.glmnet, type = "2")/(norm(df$coef.L0glm, type = "2") + norm(df$coef.glmnet, type = "2"))
-sqrt(sum((df$coef.true - df$coef.glmnet)^2))
-sqrt(sum((df$coef.true - df$coef.L0glm)^2))
-print(df)
-
-# TODO delette
-plot(df$coef.true, pch = 16, type = "b")
-points(df$coef.glmnet, col = "red2", pch = 16, type = "b")
+abs(df$coef.glmnet - df$coef.L0glm)
+plot(df$coef.true, pch = 16, type = "b", ylab = "Estimate",
+     main = "Compare true coefficients (black) with estimate fitted with glmnet (red) or L0glm (green)")
 points(df$coef.L0glm, col = "green4", pch = 16, type = "b")
+points(df$coef.glmnet, col = "red2", pch = 16, type = "b")
+graph2ppt(file = "Github/graphs", append = TRUE)
 
 # Conclusion
 # Both algorithms exhibit coefficients following the same trend but the absolute
