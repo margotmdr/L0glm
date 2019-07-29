@@ -80,15 +80,19 @@ microbenchmark(
 df <- data.frame(coef.glm = coef(glm_fit),
                  coef.L0glm = coef(L0glm_fit))
 abs(df$coef.glm - df$coef.L0glm)
-p <- ggplot(data = df, aes(x = 1:nrow(df))) +
-  geom_point(aes(y = coef.glm), color = "red3") +
-  geom_point(aes(y = coef.L0glm), color = "green4") +
-  ggtitle("Compare coefficients estimate between glm (red) and L0glm (green)") +
-  ylab("Estimate") + xlab("Index")
-# plot(df$coef.L0glm, col = "green4", pch = 16, type = "b", ylab = "Estimate",
-#      main = "Compare coefficients estimate between glm (red) and L0glm (green)")
-# points(df$coef.glm, col = "red2", pch = 16, type = "b")
-graph2ppt(file = "Github/graphs", scaling = 50, append = TRUE)
+
+# Plot coefficients
+data <- data.frame(y = unlist(df),
+                   x = rep(1:nrow(df), ncol(df)),
+                   type = rep(c("glm", "L0glm"), each = nrow(df)))
+pl <- ggplot(data = data, aes(x = x, y = y, color = type)) +
+  geom_point() + geom_line() +
+  ggtitle("Compare coefficients estimated using glm or L0glm") +
+  ylab("Estimate") + xlab("Index") +
+  scale_colour_manual(name = "Algorithm",
+                      values = c(glm = "red3", L0glm = "green4"),
+                      labels = c(glm = "glm", L0glm = "L0glm"))
+graph2ppt(pl, file = "Github/graphs", scaling = 50, append = TRUE)
 
 # Conclusion
 # Both algorithms give almost exactly the same solution (up to 2E-15). The
@@ -133,11 +137,19 @@ df <- data.frame(coef.glmnet = coef(glmnet_fit, s = 1)[-1], # first element is a
                  coef.L0glm = coef(L0glm_fit),
                  coef.true = beta)
 abs(df$coef.glmnet - df$coef.L0glm)
-plot(df$coef.true, pch = 16, type = "b", ylab = "Estimate",
-     main = "Compare true coefficients (black) with estimate fitted with glmnet (red) or L0glm (green)")
-points(df$coef.L0glm, col = "green4", pch = 16, type = "b")
-points(df$coef.glmnet, col = "red2", pch = 16, type = "b")
-graph2ppt(file = "Github/graphs", append = TRUE)
+
+# Plot coefficients
+data <- data.frame(y = unlist(df),
+                   x = rep(1:nrow(df), ncol(df)),
+                   type = rep(c("glmnet", "L0glm", "true"), each = nrow(df)))
+pl <- ggplot(data = data, aes(x = x, y = y, color = type)) +
+  geom_point() + geom_line() +
+  ggtitle("Compare true coefficients with coefficients estimated \nusing glmnet or L0glm") +
+  ylab("Estimate") + xlab("Index") +
+  scale_colour_manual(name = "Algorithm",
+                      values = c(glmnet = "red3", L0glm = "green4", true = "grey40"),
+                      labels = c(glmnet = "glmnet", L0glm = "L0glm", true = "True"))
+graph2ppt(pl, file = "Github/graphs", scaling = 50, append = TRUE)
 
 # Conclusion
 # Both algorithms exhibit coefficients following the same trend but the absolute
@@ -160,10 +172,12 @@ plot(test2$lambda.tune$lambdas, test2$lambda.tune$IC[, "rss"],log= "xy", type = 
 test2$lambda.tune$best.lam
 
 
-####---- BENCHMARK WITH L0Learn ----####
+####---- BENCHMARK WITH L0Learn, L0ara, bestsubset ----####
 
 
 library(L0Learn)
+library(l0ara)
+library(bestsubset)
 
 # From ?L0Learn.fit examples
 # Generate synthetic data for this example
@@ -171,54 +185,112 @@ n <- 200
 p <- 500
 k <- 10
 data <- GenSynthetic(n = n, p = p, k = k, seed = 123)
+beta <-  c(rep(1, k), rep(0, p - k))
 x <- data$X
 y <- data$y
-y <- (y - mean(y))/sd(y - mean(y))
-beta <-  c(rep(1, k), rep(0, p - k))
 
 microbenchmark(
   # L0 penalized regression using L0Learn
   "L0Learn" = {
     L0Learn_fit <- L0Learn.fit(x = x, y = y, penalty="L0", maxSuppSize = ncol(X),
-                               nGamma = 0, autoLambda = FALSE, lambdaGrid = list(1E-2),
-                               tol = 1E-7)
+                               nGamma = 0, autoLambda = FALSE, lambdaGrid = list(1.56E-2),
+                               tol = 1E-4)
+  },
+  # L0 penalized regression using L0ara
+  "L0ara" = {
+    L0ara_fit <- l0ara(x = x, y = y, family = "gaussian", lam = 2.5,
+                         standardize = F, eps = 1E-4)
+  },
+  # Best subset regression using bestsubset
+  "bestsubset" = {
+    bs_fit <- bs(x = x, y = y, k = k, intercept = TRUE,
+                 form = ifelse(nrow(x) < ncol(x), 2, 1), time.limit = 5, nruns = 50,
+                 maxiter = 1000, tol = 1e-04, polish = TRUE, verbose = FALSE)
   },
   # L0 penalized regression using L0glm
   "L0glm" = {
     L0glm_fit <- L0glm(y ~ 1 + ., data = data.frame(y = y, x),
                        family = gaussian(),
-                       lambda = 3, tune.meth = "none", nonnegative = FALSE,
+                       lambda = 2.5, tune.meth = "none", nonnegative = FALSE,
                        control.iwls = list(maxit = 100, thresh = 1E-4),
                        control.l0 = list(maxit = 100, rel.tol = 1E-7),
                        control.fit = list(maxit = 1), verbose = FALSE)
   },
   times = 5
 )
+# Note that bestsubset is optimized using the true number of nonzero coefficient
+# because tuning it was much to slow. The algorithm check solution using
+# Gurobi's mixed integer program solver which is very slow for k = 10, so time
+# limit was set to 5 s which dramatically overestimates to true time
+# performance of bestsubset
+
 # Check results
 df <- data.frame(coef.L0Learn = as.numeric(L0Learn_fit$beta[[1]]),
+                 coef.L0ara = L0ara_fit$beta,
+                 coef.bestsubset = as.vector(bs_fit$beta),
                  coef.L0glm = coef(L0glm_fit)[-1],
-                 coef.true = beta,
-                 `L0Learn-L0glm` = abs(as.numeric(L0Learn_fit$beta[[1]]) - coef.L0glm[-1]),
-                 `true-L0Learn` = abs(beta - as.numeric(L0Learn_fit$beta[[1]])),
-                 `true-L0glm` = abs(beta - coef(L0glm_fit)[-1]),
-                 check.names = F)
-print(df)
-sum(df$`true-L0Learn`)
-sum(df$`true-L0glm`)
+                 coef.true = beta)
+all(rowSums(df[(k+1):p,]) == 0)
+# No false positives !
+abs(df$coef.L0Learn - df$coef.bestsubset)[1:k]
+abs(df$coef.L0glm - df$coef.L0ara)[1:k]
+abs(df$coef.L0glm - df$coef.L0Learn)[1:k]
+
+data <- data.frame(y = unlist(df[1:k,]),
+                   x = rep(1:k, ncol(df[1:k,])),
+                   type = rep(c("L0Learn", "L0ara", "bestsubset", "L0glm", "true"), each = k))
+pl <- ggplot(data = data, aes(x = x, y = y, color = type)) +
+  geom_point() + geom_line() +
+  ggtitle("Compare true coefficients with coefficient estimated \nusing bestsubset, L0ara, L0glm, L0Learn") +
+  ylab("Estimate") + xlab("Index") +
+  scale_colour_manual(name = "Algorithm",
+                      values = c(L0Learn = "red3", L0ara = "orange2",
+                                 bestsubset = "purple", L0glm = "green4", true = "grey40"),
+                      labels = c(L0Learn = "L0Learn", L0ara = "L0ara",
+                                 bestsubset = "bestsubset", L0glm = "L0glm", true = "True"))
+graph2ppt(pl, file = "Github/graphs", scaling = 50, append = TRUE)
 
 # Conclusion
-# Both algorithm give similar results, they can both select the correct set of
-# nonzero parameters. However there seems to be a systematic bias between L0glm
-# and L0learn, and L0Learn is slightly closer to the true solution.
+# All algorithms find the correct set of coefficients
+# The solution with L0Learn is very similar to the solution found with bestsubset
+# (up to 5E-4). The L0glm and L0ara find almost the same solution (up to 1E-8).
+# However, there is a noticeable difference between L0glm (and hence L0ara) and
+# bestsubset (and hence L0Learn) and this difference seems to be systematic across
+# coefficients.
+
+
 
 # TODO delete
 plot(df$coef.true[1:10], pch = 16)
 points(df$coef.L0glm[1:10], col = "green4", pch = 16)
 points(df$coef.L0Learn[1:10], col = "red2", pch = 16)
-
-
-
-
+# Select lambda
+# L0Learn
+test1 <- L0Learn.cvfit(x = x, y = y, loss = "SquaredError", penalty = "L0",
+                       algorithm = "CD", maxSuppSize = 100, nLambda = 100, nGamma = 0,
+                       maxIters = 200, tol = 1e-4, autoLambda = TRUE, nFolds = 3, seed = 123)
+plot(test1$fit$lambda[[1]], test1$cvMeans[[1]], log = "xy", type = "l")
+test1$fit$lambda[[1]][which.min(test1$cvMeans[[1]])]
+# L0ara
+test2 <- cv.l0ara(x = x, y = y, family = "gaussian", lam = 10^seq(-2,2, length.out = 21),
+                  measure = "mse", nfolds = 3, eps = 1E-4)
+plot(test2$lambda, test2$cv.error, type = "l", log = "xy")
+test2$lam.min
+# bestsubset
+test3 <- bs(x = x, y = y, k = 0:15, intercept = TRUE,
+   form = ifelse(nrow(x) < ncol(x), 2, 1), time.limit = 100, nruns = 50,
+   maxiter = 1000, tol = 1e-04, polish = TRUE, verbose = T)
+# This is super slow to compute ... Best k will be set to true k = 10
+# L0glm
+test4 <- L0glm(y ~ 1 + ., data = data.frame(y = y, x),
+               family = gaussian(),
+               lambda = 10^seq(-2,2, length.out = 21),
+               tune.meth = "3-fold", tune.crit = "rss", nonnegative = FALSE,
+               control.iwls = list(maxit = 100, thresh = 1E-4),
+               control.l0 = list(maxit = 100, rel.tol = 1E-7),
+               control.fit = list(maxit = 1), verbose = TRUE)
+plot(test4$lambda.tune$lambdas, test4$lambda.tune$IC[,"rss"], type = "l", log = "xy")
+test4$lambda.tune$best.lam
 
 
 
