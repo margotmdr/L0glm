@@ -12,6 +12,7 @@ setwd("D:/Documents/GitHub/L0glm/Paper")
 library(L0glm)
 library(microbenchmark)
 library(export)
+library(ggplot2)
 graph2ppt(file = "Github/graphs") # Initialize the ppt file
 
 
@@ -79,10 +80,15 @@ microbenchmark(
 df <- data.frame(coef.glm = coef(glm_fit),
                  coef.L0glm = coef(L0glm_fit))
 abs(df$coef.glm - df$coef.L0glm)
-plot(df$coef.L0glm, col = "green4", pch = 16, type = "b", ylab = "Estimate",
-     main = "Compare coefficients estimate between glm (red) and L0glm (green)")
-points(df$coef.glm, col = "red2", pch = 16, type = "b")
-graph2ppt(file = "Github/graphs", append = TRUE)
+p <- ggplot(data = df, aes(x = 1:nrow(df))) +
+  geom_point(aes(y = coef.glm), color = "red3") +
+  geom_point(aes(y = coef.L0glm), color = "green4") +
+  ggtitle("Compare coefficients estimate between glm (red) and L0glm (green)") +
+  ylab("Estimate") + xlab("Index")
+# plot(df$coef.L0glm, col = "green4", pch = 16, type = "b", ylab = "Estimate",
+#      main = "Compare coefficients estimate between glm (red) and L0glm (green)")
+# points(df$coef.glm, col = "red2", pch = 16, type = "b")
+graph2ppt(file = "Github/graphs", scaling = 50, append = TRUE)
 
 # Conclusion
 # Both algorithms give almost exactly the same solution (up to 2E-15). The
@@ -114,7 +120,7 @@ microbenchmark(
   "L0glm (ridge settings)" = {
     L0glm_fit <- L0glm(y ~ 0 + ., data = data.frame(y = y, x),
                        family = gaussian(),
-                       lambda = 10, tune.meth = "none", nonnegative = FALSE,
+                       lambda = 1, tune.meth = "none", nonnegative = FALSE,
                        control.iwls = list(maxit = 25, thresh = .Machine$double.eps),
                        control.l0 = list(maxit = 1),
                        control.fit = list(maxit = 1), verbose = FALSE)
