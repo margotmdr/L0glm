@@ -64,6 +64,11 @@ plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm.out, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates")
 ```
 
+`L0glm`: an "all in one" package
+--------------------------------
+
+
+
 Benchmark with other R packages 
 -------------------------------
 
@@ -120,14 +125,14 @@ abs(df$coef.glm - df$coef.L0glm)
 ```
 
 <p align="left">
-  <img src="Paper/Github/glm_vs_L0glm.png" width="600" title="glm vs L0glm">
+  <img src="Paper/Github/glm_vs_L0glm.png" width="700" title="glm vs L0glm">
 </p>
 
-*The red curves lies behind the green curve* 
+*The red curve is hidden behind the green curve* 
 
 
 #### Conclusion
-Both algorithms give almost exactly the same solution (up to 2E-15). The higher functionnality of the L0glm framework (possibility of nonnegative constraints and regularization) is a the cost of timing performance.
+Both algorithms give exactly the same solution (up to 2E-15). The higher functionnality of the L0glm framework (possibility of nonnegative constraints and regularization) is at the cost of timing performance. 
 
 
 ### Ridge regression using `L0glm` and `glmnet`
@@ -191,7 +196,7 @@ abs(df$coef.glmnet - df$coef.L0glm)
 ```
 
 <p align="left">
-  <img src="Paper/Github/glmnet_vs_L0glm.png" width="750" title="Compare ridge algorithms">
+  <img src="Paper/Github/glmnet_vs_L0glm.png" width="700" title="Compare ridge algorithms">
 </p>
 
 
@@ -236,25 +241,25 @@ microbenchmark(
   "L0Learn" = {
     L0Learn_fit <- L0Learn.fit(x = x, y = y, penalty="L0", maxSuppSize = ncol(X),
                                nGamma = 0, autoLambda = FALSE, lambdaGrid = list(1.56E-2),
-                               tol = 1E-4)
+                               tol = 1E-7)
   },
   # L0 penalized regression using L0ara
   "L0ara" = {
     L0ara_fit <- l0ara(x = x, y = y, family = "gaussian", lam = 2.5,
-                         standardize = F, eps = 1E-4)
+                       standardize = F, eps = 1E-7)
   },
   # Best subset regression using bestsubset
   "bestsubset" = {
     bs_fit <- bs(x = x, y = y, k = k, intercept = TRUE,
                  form = ifelse(nrow(x) < ncol(x), 2, 1), time.limit = 5, nruns = 50,
-                 maxiter = 1000, tol = 1e-04, polish = TRUE, verbose = FALSE)
+                 maxiter = 1000, tol = 1e-7, polish = TRUE, verbose = FALSE)
   },
   # L0 penalized regression using L0glm
   "L0glm" = {
     L0glm_fit <- L0glm(y ~ 1 + ., data = data.frame(y = y, x),
                        family = gaussian(),
                        lambda = 2.5, tune.meth = "none", nonnegative = FALSE,
-                       control.iwls = list(maxit = 100, thresh = 1E-4),
+                       control.iwls = list(maxit = 100, thresh = 1E-7),
                        control.l0 = list(maxit = 100, rel.tol = 1E-7),
                        control.fit = list(maxit = 1), verbose = FALSE)
   },
@@ -263,11 +268,11 @@ microbenchmark(
 ```
 ```
 Unit: milliseconds
-       expr         min          lq        mean      median          uq        max neval cld
-    L0Learn    1.642624    1.820675    1.921794    1.861284    1.948748    2.33564     5 a  
-      L0ara   26.659057   28.146835   36.034552   29.989375   45.735091   49.64240     5 a  
- bestsubset 5376.288028 5424.125819 5438.215970 5442.571757 5470.769016 5477.32523     5   c
-      L0glm  448.357756  483.601206  503.122592  485.941309  535.116048  562.59664     5  b 
+       expr         min          lq        mean      median         uq         max neval cld
+    L0Learn    1.519014    1.618527    1.808269    1.672522    1.88181    2.349474     5 a  
+      L0ara   30.923810   35.449169   43.382672   39.948200   48.55491   62.037274     5 a  
+ bestsubset 5403.912756 5448.323395 5581.924445 5530.706712 5641.51577 5885.163595     5   c
+      L0glm  550.024610  550.614545  563.418621  554.177803  567.09924  595.176907     5  b 
 ```
 
 Note that `bestsubset` is optimized using the true number of nonzero coefficient because tuning it is very slow. Furthermore, the algorithm checks the solution using the Gurobi's mixed integer program solver which is very slow for k = 10, so time limit was set to `time.limit = 5` (5 sec) which dramatically overestimates the time performance of `bestsubset`.
@@ -283,7 +288,7 @@ df <- data.frame(coef.L0Learn = as.numeric(L0Learn_fit$beta[[1]]),
 ```
 
 ```r
-all(rowSums(df[(k+1):p,]) == 0)               
+all(df[(k+1):p,] == 0)
 ```
 ```
 [1] TRUE
@@ -315,18 +320,119 @@ abs(df$coef.L0glm - df$coef.L0Learn)[1:k]
 There is a noticeable difference between `L0glm` and `L0Learn`. However, the coefficients seem to be scaled with respect to one another. This is easier to see in this plot:
 
 <p align="left">
-  <img src="Paper/Github/L0Learn_L0ara_bestsubset_vs_L0glm.png" width="750" title="Compare best subset algorithms">
+  <img src="Paper/Github/L0Learn_L0ara_bestsubset_vs_L0glm.png" width="700" title="Compare best subset algorithms">
 </p>
 
 *Note that the curve for `L0ara` is hidden behind `L0Learn` and the curve for `bestsubset` is hidden behind `L0Learn`.*
 
+#### Conclusion
 
-### Compare L0glm with Lasso, MC+, SCAD
+All 4 algorithms are able to correctly identify the set of non-zero coefficients. The algorithms based on the adaptive ridge (`L0glm` and `L0ara`) are slightly biased with respect to the CD algorithm (`L0Learn`) or the MIO algorithm (`bestsubset`).
+
+With respect to timing, `L0Learn` is the fastest algorithm and, unfortunately, our `L0glm` algorithm is approximately 250x slower. However, `L0Learn` is able to solve problems containing Gaussian noise whereas our algorithm is able to solve L0 penalized regression for a wide variety of error structures and can also account for nonnegativity constraints.
 
 
+### Compare Lasso, MCP, SCAD, and L0 penalties
 
 
+Other popular approximations for best subset selection are the lasso (L1 norm), MCP and SCAD penalties.
 
+TODO give definition of the penalties
+
+The `ncvreg` package implements the lasso, MCP and SCAD penalties and allow us to test whether L0 penalty as a proxy for best subset selection is indeed the best penalty for regression. 
+
+```r
+library(ncvreg)
+```
+
+Again, we start with simulating data with sparse coefficients using the `GenSynthetic` function in the `L0Learn` package:
+```r
+n <- 200
+p <- 500
+k <- 10
+data <- GenSynthetic(n = n, p = p, k = k, seed = 123)
+beta <-  c(rep(1, k), rep(0, p - k))
+x <- data$X
+y <- data$y
+```
+
+We fit the data with the different penalities and measure the time performance. Note that we use our `L0glm` package to fit the L0 penalty. All `lambda`'s have been previously tuned using 3-fold cross-validation on a suitable range.
+```r
+microbenchmark(
+  "lasso" = {
+    lasso_fit <- ncvreg(X = x, y = y, family = "gaussian", penalty = "lasso",
+                        alpha = 1, lambda = 0.1278381, eps = 1e-7)
+  },
+  "MCP" = {
+    mcp_fit <- ncvreg(X = x, y = y, family = "gaussian", penalty = "MCP",
+                        alpha = 1, lambda = 0.1678555, eps = 1e-7)
+  },
+  "SCAD" = {
+    scad_fit <- ncvreg(X = x, y = y, family = "gaussian", penalty = "SCAD",
+                        alpha = 1, lambda = 0.1442869, eps = 1e-7)
+  },
+  "L0" = {
+    L0glm_fit <- L0glm(y ~ 1 + ., data = data.frame(y = y, x),
+                       family = gaussian(),
+                       lambda = 2.5, tune.meth = "none", nonnegative = FALSE,
+                       control.iwls = list(maxit = 100, thresh = 1E-4),
+                       control.l0 = list(maxit = 100, rel.tol = 1E-7, warn = TRUE),
+                       control.fit = list(maxit = 1), verbose = FALSE)
+  },
+  times = 5
+)
+```
+```
+Unit: milliseconds
+  expr        min         lq       mean     median         uq        max neval cld
+ lasso   4.149622   4.203617   7.075197   4.723492   4.825236  17.474019     5  a 
+   MCP   4.051449   4.068852   4.646738   4.329904   4.444589   6.338894     5  a 
+  SCAD   4.166134   4.204957   4.286173   4.238871   4.275463   4.545440     5  a 
+    L0 502.345681 520.728253 545.483454 538.695371 568.632535 597.015431     5   b
+```
+
+Although all penalties encourage sparsity in the fitted coefficients, let's check the sensitivity and specificity of the algorithms:
+
+```r
+df <- data.frame(coef.lasso = coef(lasso_fit)[-1], # remove intercept
+                 coef.mcp = coef(mcp_fit)[-1],
+                 coef.scad = coef(scad_fit)[-1],
+                 coef.L0 = coef(L0glm_fit)[-1],
+                 coef.true = beta)
+FP <- colSums(df[(k+1):p,] != 0)
+TP <- colSums(df[1:k,] != 0)
+FN <- colSums(df[1:k,] == 0)
+TN <- colSums(df[(k+1):p,] == 0)
+```
+#### Sensitivity
+```r
+TP/(TP + FN)
+```
+```
+coef.lasso   coef.mcp  coef.scad    coef.L0  coef.true 
+         1          1          1          1          1 
+```
+All penalties allow for non-zero coefficients to be be estimated as such.
+
+#### Specificity
+```r
+TN/(TN + FP)
+```
+```
+coef.lasso   coef.mcp  coef.scad    coef.L0  coef.true 
+ 0.9428571  0.9897959  0.9693878  1.0000000  1.0000000 
+```
+Only the L0 penalty is able to remove variables that are zero in the true model.
+
+When looking at the estimates, it can be seen that the SCAD, MCP and L0 penalties lead to similar results. The slight shift observed for the L0 penalty is linked to the fact that it is fit with our `L0glm` algorithm and fitting the L0 penalized, fitting the L0 penalized with `L0Learn` decreases the gap. However, there is an important difference when fitting the regression using the lasso penalty. Possible reasons are that this gap is compensated by the observed higher false negativity (lower specificity) and that introducing this penalty leads to the well known bias-variance trade-off.
+
+<p align="left">
+  <img src="Paper/Github/lasso_mcp_scad_vs_L0.png" width="700" title="Compare penalties">
+</p>
+
+#### Conclusion
+
+The L0 penalty seems indeed to have better feature selection properties than the MCP, SCAD, or lasso penalties, at least in the n >> p case. Again, `L0glm` is slower than `ncvreg`, but this is linked to the optimization algorithm rather than the penalty since `L0Learn` is faster than `ncvreg`.
 
 Application example
 -------------------
