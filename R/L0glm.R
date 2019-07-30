@@ -296,7 +296,7 @@ L0glm <- function(formula,
     matrix(NA, length(y), 0L)
   }
   intercept <- as.logical(attr(mt, "intercept"))
-  if(intercept) no.pen <- c(0, no.pen)
+  if(intercept) no.pen <- c(1, no.pen + 1)
 
   # Get control parameters
   control.l0 <- do.call("control.l0.gen", control.l0)

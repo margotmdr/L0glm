@@ -53,7 +53,7 @@ plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm.out, a.true = sim$a,
 
 
 # From ?glm examples
-  # Dobson (1990) Page 93: Randomized Controlled Trial :
+# Dobson (1990) Page 93: Randomized Controlled Trial :
 counts <- c(18,17,15,20,10,20,25,13,12)
 outcome <- gl(3,1,9)
 treatment <- gl(3,3)
@@ -100,8 +100,12 @@ graph2ppt(pl, file = "Github/graphs", scaling = 50, append = TRUE)
 # constraints and regularization) is a the cost of timing performance.
 
 
-####---- BENCHMARK WITH GLMNET ----####
+####---- BENCHMARK WITH GLMNET, A ----####
 
+
+library(glmnet)
+library(ridge)
+library(penalized)
 
 # Simulate data with Gaussian noise
 set.seed(123)
@@ -117,38 +121,53 @@ microbenchmark(
   "glmnet" = {
     glmnet_fit <- glmnet(x = x, y = y, family = "gaussian", alpha = 0,
                          standardize = FALSE, thresh = .Machine$double.eps,
-                         lambda = 10^seq(10,0), intercept = FALSE)
+                         lambda = 10^seq(10,0), intercept = TRUE)
     # Note: best lambda was tuned with 3-fold cv on sequence 10^seq(-10, 10)
+  },
+  # Ridge regression using ridge
+  "ridge" = {
+    ridge_fit <- linearRidge(y ~ 1 + ., data = data.frame(y = y, x),
+                             lambda = 1, scaling = "none")
+  },
+  "penalized" = {
+    penal_fit <- penalized(response = y, penalized = x,
+                           lambda1 = 0, lambda2 = 1, positive = FALSE, model= "linear",
+                           epsilon = .Machine$double.eps, maxiter = 25, trace = F)
   },
   # L0glm fitting (using glm settings)
   "L0glm (ridge settings)" = {
-    L0glm_fit <- L0glm(y ~ 0 + ., data = data.frame(y = y, x),
+    L0glm_fit <- L0glm(y ~ 1 + ., data = data.frame(y = y, x),
                        family = gaussian(),
                        lambda = 1, tune.meth = "none", nonnegative = FALSE,
                        control.iwls = list(maxit = 25, thresh = .Machine$double.eps),
                        control.l0 = list(maxit = 1),
-                       control.fit = list(maxit = 1), verbose = FALSE)
+                       control.fit = list(maxit = 1, tol = .Machine$double.eps),
+                       verbose = FALSE)
     # Note: best lambda was tuned with 3-fold cv on sequence 10^seq(-10, 10)
   },
   times = 25
 )
 # Check results
-df <- data.frame(coef.glmnet = coef(glmnet_fit, s = 1)[-1], # first element is an empty intercept
+df <- data.frame(coef.glmnet = as.vector(coef(glmnet_fit, s = 1)),
+                 coef.ridge = coef(ridge_fit),
+                 coef.penalized = coef(penal_fit),
                  coef.L0glm = coef(L0glm_fit),
-                 coef.true = beta)
+                 coef.true = c(0, beta)) # no intercept is present
 abs(df$coef.glmnet - df$coef.L0glm)
+abs(df$coef.ridge - df$coef.L0glm)
+abs(df$coef.penalized - df$coef.L0glm)
 
 # Plot coefficients
 data <- data.frame(y = unlist(df),
                    x = rep(1:nrow(df), ncol(df)),
-                   type = rep(c("glmnet", "L0glm", "true"), each = nrow(df)))
+                   type = rep(c("glmnet", "ridge", "penalized", "L0glm", "true"), each = nrow(df)))
 pl <- ggplot(data = data, aes(x = x, y = y, color = type)) +
   geom_point() + geom_line() +
-  ggtitle("Compare true coefficients with coefficients estimated \nusing glmnet or L0glm") +
+  ggtitle("Compare true coefficients with coefficients estimated \nusing glmnet, ridge, or L0glm") +
   ylab("Estimate") + xlab("Index") +
   scale_colour_manual(name = "Algorithm",
-                      values = c(glmnet = "red3", L0glm = "green4", true = "grey40"),
-                      labels = c(glmnet = "glmnet", L0glm = "L0glm", true = "True"))
+                      values = c(glmnet = "red3", ridge = "orange2", penalized = "purple", L0glm = "green4", true = "grey40"),
+                      labels = c(glmnet = "glmnet", ridge = "ridge", penalized = "penalized", L0glm = "L0glm", true = "True"))
 graph2ppt(pl, file = "Github/graphs", scaling = 50, append = TRUE)
 
 # Conclusion
@@ -165,9 +184,9 @@ plot(test1$lambda, test1$cvm,log= "xy", type = 'l')
 test1$lambda.min
 test2 <- L0glm(y ~ 0 + ., data = data.frame(y = y, x), family = gaussian(),
                lambda = 10^seq(10,-10), tune.meth = "3-fold", tune.crit = "rss",
-              nonnegative = FALSE, control.l0 = list(maxit = 1),
-              control.iwls = list(maxit = 25, thresh = .Machine$double.eps),
-              control.fit = list(maxit = 1), verbose = TRUE)
+               nonnegative = FALSE, control.l0 = list(maxit = 1),
+               control.iwls = list(maxit = 25, thresh = .Machine$double.eps),
+               control.fit = list(maxit = 1), verbose = TRUE)
 plot(test2$lambda.tune$lambdas, test2$lambda.tune$IC[, "rss"],log= "xy", type = 'l')
 test2$lambda.tune$best.lam
 
@@ -194,25 +213,25 @@ microbenchmark(
   "L0Learn" = {
     L0Learn_fit <- L0Learn.fit(x = x, y = y, penalty="L0", maxSuppSize = ncol(X),
                                nGamma = 0, autoLambda = FALSE, lambdaGrid = list(1.56E-2),
-                               tol = 1E-4)
+                               tol = 1E-7)
   },
   # L0 penalized regression using L0ara
   "L0ara" = {
     L0ara_fit <- l0ara(x = x, y = y, family = "gaussian", lam = 2.5,
-                         standardize = F, eps = 1E-4)
+                       standardize = F, eps = 1E-7)
   },
   # Best subset regression using bestsubset
   "bestsubset" = {
     bs_fit <- bs(x = x, y = y, k = k, intercept = TRUE,
                  form = ifelse(nrow(x) < ncol(x), 2, 1), time.limit = 5, nruns = 50,
-                 maxiter = 1000, tol = 1e-04, polish = TRUE, verbose = FALSE)
+                 maxiter = 1000, tol = 1e-7, polish = TRUE, verbose = FALSE)
   },
   # L0 penalized regression using L0glm
   "L0glm" = {
     L0glm_fit <- L0glm(y ~ 1 + ., data = data.frame(y = y, x),
                        family = gaussian(),
                        lambda = 2.5, tune.meth = "none", nonnegative = FALSE,
-                       control.iwls = list(maxit = 100, thresh = 1E-4),
+                       control.iwls = list(maxit = 100, thresh = 1E-7),
                        control.l0 = list(maxit = 100, rel.tol = 1E-7),
                        control.fit = list(maxit = 1), verbose = FALSE)
   },
@@ -230,7 +249,7 @@ df <- data.frame(coef.L0Learn = as.numeric(L0Learn_fit$beta[[1]]),
                  coef.bestsubset = as.vector(bs_fit$beta),
                  coef.L0glm = coef(L0glm_fit)[-1],
                  coef.true = beta)
-all(rowSums(df[(k+1):p,]) == 0)
+all(df[(k+1):p,] == 0)
 # No false positives !
 abs(df$coef.L0Learn - df$coef.bestsubset)[1:k]
 abs(df$coef.L0glm - df$coef.L0ara)[1:k]
@@ -261,36 +280,129 @@ graph2ppt(pl, file = "Github/graphs", scaling = 50, append = TRUE)
 
 
 # TODO delete
-plot(df$coef.true[1:10], pch = 16)
-points(df$coef.L0glm[1:10], col = "green4", pch = 16)
-points(df$coef.L0Learn[1:10], col = "red2", pch = 16)
 # Select lambda
 # L0Learn
 test1 <- L0Learn.cvfit(x = x, y = y, loss = "SquaredError", penalty = "L0",
                        algorithm = "CD", maxSuppSize = 100, nLambda = 100, nGamma = 0,
-                       maxIters = 200, tol = 1e-4, autoLambda = TRUE, nFolds = 3, seed = 123)
+                       maxIters = 200, tol = 1e-7, autoLambda = TRUE, nFolds = 3, seed = 123)
 plot(test1$fit$lambda[[1]], test1$cvMeans[[1]], log = "xy", type = "l")
 test1$fit$lambda[[1]][which.min(test1$cvMeans[[1]])]
 # L0ara
 test2 <- cv.l0ara(x = x, y = y, family = "gaussian", lam = 10^seq(-2,2, length.out = 21),
-                  measure = "mse", nfolds = 3, eps = 1E-4)
+                  measure = "mse", nfolds = 3, eps = 1E-7)
 plot(test2$lambda, test2$cv.error, type = "l", log = "xy")
 test2$lam.min
 # bestsubset
 test3 <- bs(x = x, y = y, k = 0:15, intercept = TRUE,
-   form = ifelse(nrow(x) < ncol(x), 2, 1), time.limit = 100, nruns = 50,
-   maxiter = 1000, tol = 1e-04, polish = TRUE, verbose = T)
+            form = ifelse(nrow(x) < ncol(x), 2, 1), time.limit = 100, nruns = 50,
+            maxiter = 1000, tol = 1e-07, polish = TRUE, verbose = T)
 # This is super slow to compute ... Best k will be set to true k = 10
 # L0glm
 test4 <- L0glm(y ~ 1 + ., data = data.frame(y = y, x),
                family = gaussian(),
                lambda = 10^seq(-2,2, length.out = 21),
                tune.meth = "3-fold", tune.crit = "rss", nonnegative = FALSE,
-               control.iwls = list(maxit = 100, thresh = 1E-4),
+               control.iwls = list(maxit = 100, thresh = 1E-7),
                control.l0 = list(maxit = 100, rel.tol = 1E-7),
                control.fit = list(maxit = 1), verbose = TRUE)
 plot(test4$lambda.tune$lambdas, test4$lambda.tune$IC[,"rss"], type = "l", log = "xy")
 test4$lambda.tune$best.lam
+
+
+####---- COMPARE L0 PENALTY WITH LASSO, MCP, OR SCAD PENALTY ----####
+
+
+library(ncvreg)
+
+# From ?L0Learn.fit examples
+# Generate synthetic data for this example
+n <- 200
+p <- 500
+k <- 10
+data <- GenSynthetic(n = n, p = p, k = k, seed = 123)
+beta <-  c(rep(1, k), rep(0, p - k))
+x <- data$X
+y <- data$y
+
+microbenchmark(
+  "lasso" = {
+    lasso_fit <- ncvreg(X = x, y = y, family = "gaussian", penalty = "lasso",
+                        alpha = 1, lambda = 0.1278381, eps = 1e-7)
+  },
+  "MCP" = {
+    mcp_fit <- ncvreg(X = x, y = y, family = "gaussian", penalty = "MCP",
+                        alpha = 1, lambda = 0.1678555, eps = 1e-7)
+  },
+  "SCAD" = {
+    scad_fit <- ncvreg(X = x, y = y, family = "gaussian", penalty = "SCAD",
+                        alpha = 1, lambda = 0.1442869, eps = 1e-7)
+  },
+  "L0" = {
+    L0glm_fit <- L0glm(y ~ 1 + ., data = data.frame(y = y, x),
+                       family = gaussian(),
+                       lambda = 2.5, tune.meth = "none", nonnegative = FALSE,
+                       control.iwls = list(maxit = 100, thresh = 1E-7),
+                       control.l0 = list(maxit = 100, rel.tol = 1E-7),
+                       control.fit = list(maxit = 1), verbose = FALSE)
+  },
+  times = 5
+)
+
+# Check results
+df <- data.frame(coef.lasso = coef(lasso_fit)[-1], # remove intercept
+                 coef.mcp = coef(mcp_fit)[-1],
+                 coef.scad = coef(scad_fit)[-1],
+                 coef.L0 = coef(L0glm_fit)[-1],
+                 coef.true = beta)
+FP <- colSums(df[(k+1):p,] != 0)
+TP <- colSums(df[1:k,] != 0)
+FN <- colSums(df[1:k,] == 0)
+TN <- colSums(df[(k+1):p,] == 0)
+TP/(TP + FN) # sensitivity
+TN/(TN + FP) # specificity
+
+# Plot results
+data <- data.frame(y = unlist(df),
+                   x = rep(1:(p+1), ncol(df)),
+                   type = rep(c("lasso", "mcp", "scad", "L0", "true"), each = p+1))
+nz <- (1:(p+1)) %in% 2:(k+1)
+pl <- ggplot(data = data[nz,], aes(x = x, y = y, color = type)) +
+  geom_point() + geom_line() +
+  ggtitle("Compare true nonzero coefficients with coefficient estimated \nusing lasso, MCP, SCAD, or L0 penalties") +
+  ylab("Estimate") + xlab("Index") +
+  scale_colour_manual(name = "Algorithm",
+                      values = c(lasso = "red3", mcp = "orange2", scad = "purple", L0 = "green4", true = "grey40"),
+                      labels = c(lasso = "lasso", mcp = "MCP", scad = "SCAD",  L0 = "L0glm", true = "True"))
+graph2ppt(pl, file = "Github/graphs", scaling = 50, append = TRUE)
+
+
+# TODO delete
+# Opimize lambda
+lasso_cv <- cv.ncvreg(X = x, y = y, family = "gaussian", penalty = "lasso",
+                      alpha = 1, eps = 1e-9, nfolds = 3, seed = 123)
+plot(x = lasso_cv$lambda, y = lasso_cv$cve, log = "xy", type = "l")
+lasso_cv$lambda.min # 0.1278381
+mcp_cv <- cv.ncvreg(X = x, y = y, family = "gaussian", penalty = "MCP",
+                    alpha = 1, eps = 1e-9, nfolds = 3, seed = 123)
+plot(x = mcp_cv$lambda, y = mcp_cv$cve, log = "xy", type = "l")
+mcp_cv$lambda.min # 0.1678555
+scad_cv <- cv.ncvreg(X = x, y = y, family = "gaussian", penalty = "SCAD",
+                     alpha = 1, eps = 1e-9, nfolds = 3, seed = 123)
+plot(x = scad_cv$lambda, y = scad_cv$cve, log = "xy", type = "l")
+scad_cv$lambda.min # 0.1442869
+L0glm_cv <- L0glm(y ~ 1 + ., data = data.frame(y = y, x),
+                  family = gaussian(),
+                  lambda = 10^seq(-1, 1, length.out = 100), tune.meth = "3-fold",
+                  tune.crit = "rss", nonnegative = FALSE, seed = 123,
+                  control.iwls = list(maxit = 100, thresh = 1E-4),
+                  control.l0 = list(maxit = 100, rel.tol = 1E-7, warn = TRUE),
+                  control.fit = list(maxit = 1), verbose = TRUE)
+plot(x = L0glm_cv$lambda.tune$lambdas, y = L0glm_cv$lambda.tune$IC[,"rss"], log = "xy", type = "l")
+L0glm_cv$lambda.tune$best.lam # 2.25702
+
+
+
+
 
 
 
