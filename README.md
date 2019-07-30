@@ -191,7 +191,7 @@ abs(df$coef.glmnet - df$coef.L0glm)
 ```
 
 <p align="left">
-  <img src="Paper/Github/glmnet_vs_L0glm.png" width="750" title="glm vs L0glm">
+  <img src="Paper/Github/glmnet_vs_L0glm.png" width="750" title="Compare ridge algorithms">
 </p>
 
 
@@ -208,11 +208,117 @@ TODO put formula of L0 penalized regression
 
 Indeed, the concept behind L0 penalty is that variables for which the true coefficients is zero are penalized towards zero (removes false positivity) while variable for which the true coefficient isn't zero are not penalized, and hence unbiased. This boils down to identifying the subset of covariates that are non zero and fit an unpenalized linear regression, and this is also best subset regression. Hence, L0 penalized regression can be a proxy to best subset selection.
 
-In `L0glm` as well as in `L0ara`, the L0 penalty is approximated using an adaptive ridge procedure (TODO ref Frommlet 2016 + Liu 2017). 
+In `L0glm` as well as in `L0ara`, the L0 penalty is approximated using an adaptive ridge procedure (TODO ref Frommlet 2016 + Liu 2017). In `L0Learn`, the L0 penalized regression is optimized using a cyclic coordinate descent algorithm (TODO ref Hazimeh). The algorithm in `bestsubset` is based on mixed integer optimization (TODO ref Bertsimas 2016, Hastie 2017).
 
-In `L0Learn`
+```r
+library(L0Learn)
+library(l0ara)
+library(bestsubset)
+```
 
-In `bestsubset`
+Let's simulate some data using the `GenSynthetic` function in the `L0Learn` package:
+
+```r
+n <- 200
+p <- 500
+k <- 10
+data <- GenSynthetic(n = n, p = p, k = k, seed = 123)
+beta <-  c(rep(1, k), rep(0, p - k))
+x <- data$X
+y <- data$y
+```
+
+We fit the data using `L0glm`, `L0ara`, `L0Learn`, and `bestsubset` and compare their timing:
+
+```r
+microbenchmark(
+  # L0 penalized regression using L0Learn
+  "L0Learn" = {
+    L0Learn_fit <- L0Learn.fit(x = x, y = y, penalty="L0", maxSuppSize = ncol(X),
+                               nGamma = 0, autoLambda = FALSE, lambdaGrid = list(1.56E-2),
+                               tol = 1E-4)
+  },
+  # L0 penalized regression using L0ara
+  "L0ara" = {
+    L0ara_fit <- l0ara(x = x, y = y, family = "gaussian", lam = 2.5,
+                         standardize = F, eps = 1E-4)
+  },
+  # Best subset regression using bestsubset
+  "bestsubset" = {
+    bs_fit <- bs(x = x, y = y, k = k, intercept = TRUE,
+                 form = ifelse(nrow(x) < ncol(x), 2, 1), time.limit = 5, nruns = 50,
+                 maxiter = 1000, tol = 1e-04, polish = TRUE, verbose = FALSE)
+  },
+  # L0 penalized regression using L0glm
+  "L0glm" = {
+    L0glm_fit <- L0glm(y ~ 1 + ., data = data.frame(y = y, x),
+                       family = gaussian(),
+                       lambda = 2.5, tune.meth = "none", nonnegative = FALSE,
+                       control.iwls = list(maxit = 100, thresh = 1E-4),
+                       control.l0 = list(maxit = 100, rel.tol = 1E-7),
+                       control.fit = list(maxit = 1), verbose = FALSE)
+  },
+  times = 5
+)
+```
+```
+Unit: milliseconds
+       expr         min          lq        mean      median          uq        max neval cld
+    L0Learn    1.642624    1.820675    1.921794    1.861284    1.948748    2.33564     5 a  
+      L0ara   26.659057   28.146835   36.034552   29.989375   45.735091   49.64240     5 a  
+ bestsubset 5376.288028 5424.125819 5438.215970 5442.571757 5470.769016 5477.32523     5   c
+      L0glm  448.357756  483.601206  503.122592  485.941309  535.116048  562.59664     5  b 
+```
+
+Note that `bestsubset` is optimized using the true number of nonzero coefficient because tuning it is very slow. Furthermore, the algorithm checks the solution using the Gurobi's mixed integer program solver which is very slow for k = 10, so time limit was set to `time.limit = 5` (5 sec) which dramatically overestimates the time performance of `bestsubset`.
+
+Here we check the results:
+
+```r
+df <- data.frame(coef.L0Learn = as.numeric(L0Learn_fit$beta[[1]]),
+                 coef.L0ara = L0ara_fit$beta,
+                 coef.bestsubset = as.vector(bs_fit$beta),
+                 coef.L0glm = coef(L0glm_fit)[-1],
+                 coef.true = beta)
+```
+
+```r
+all(rowSums(df[(k+1):p,]) == 0)               
+```
+```
+[1] TRUE
+```
+No false positives are reported for any algorithm!
+
+```r
+abs(df$coef.L0Learn - df$coef.bestsubset)[1:k]
+```
+```
+[1] 4.895098e-05 5.048775e-05 6.223206e-05 5.445665e-05 2.923354e-04 6.432352e-04 8.146334e-07 1.039894e-04 8.360381e-05 6.299256e-05
+```
+Differences between the solution computed by `L0Learn` and `bestsubset` are little.
+
+```r
+abs(df$coef.L0glm - df$coef.L0ara)[1:k]
+```
+```
+ [1] 1.158675e-08 1.239927e-08 3.023772e-09 1.710095e-08 9.935052e-09 1.024232e-08 1.100019e-08 6.542200e-10 9.247086e-09 1.024373e-09
+```
+Solution computed with `L0glm` and `L0ara` are almost identical (up to 2E-8).
+
+```r
+abs(df$coef.L0glm - df$coef.L0Learn)[1:k]
+```
+```
+ [1] 0.017378233 0.011048311 0.012139064 0.010338355 0.008954877 0.004407962 0.012004346 0.014808499 0.011377584 0.005616895
+```
+There is a noticeable difference between `L0glm` and `L0Learn`. However, the coefficients seem to be scaled with respect to one another. This is easier to see in this plot:
+
+<p align="left">
+  <img src="Paper/Github/L0Learn_L0ara_bestsubset_vs_L0glm.png" width="750" title="Compare best subset algorithms">
+</p>
+
+*Note that the curve for `L0ara` is hidden behind `L0Learn` and the curve for `bestsubset` is hidden behind `L0Learn`.*
 
 
 ### Compare L0glm with Lasso, MC+, SCAD
