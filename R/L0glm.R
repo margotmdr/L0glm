@@ -500,7 +500,7 @@ L0glm.fit <- function(X, y,
                       nonnegative = FALSE,
                       post.filter.fn = function(u) return(u),
                       control.l0 = list(maxit = 100, rel.tol = 1E-4, delta = 1E-5, gamma = 2, warn = FALSE),
-                      control.iwls = list(maxit = 100, rel.tol = 1E-4, thresh = 1E-5, warn = FALSE),
+                      control.iwls = list(maxit = 1, rel.tol = 1E-4, thresh = 1E-5, warn = FALSE),
                       control.fit = list(maxit = 10, block.size = NULL, tol = 1E-7)){
   n <- nrow(X)
   p <- ncol(X)
@@ -561,7 +561,7 @@ glm.iwls <- function(X, y, weights, family,
                      start = NULL,
                      lambda = rep(0, ncol(X)),
                      nonnegative = FALSE,
-                     control.iwls = list(maxit = 100, rel.tol = 1E-4, thresh = 1E-5, warn = FALSE),
+                     control.iwls = list(maxit = 1, rel.tol = 1E-4, thresh = 1E-5, warn = FALSE),
                      control.fit = list(maxit = 10, block.size = NULL, tol = 1E-7),
                      converged_set = rep(FALSE, ncol(X))){
   n <- nrow(X)
@@ -613,11 +613,10 @@ glm.iwls <- function(X, y, weights, family,
   nonzero <- rep(TRUE, ncol(X)) # nonzero coefficients
   for(j in 1:control.iwls$maxit) {
 
-    # Update partial residuals (only for identity links)
+    # Update partial residuals
     # We work on partial residuals yres, ie the model predictions minus the
     # predictions for covariates with nonzero coefficients that already
     # converged. This allows for a dramatic speed up after the 1st iteration.
-    if(family$link != "identity") converged_set <- rep(FALSE, ncol(X)) # only works for identity link
     yres <- y - as.vector(X[, converged_set & nonzero, drop=F] %*% beta[converged_set & nonzero])
 
     # Linearize the response and adapt weights
@@ -776,7 +775,7 @@ control.l0.gen <- function(maxit = 100, rel.tol = 1E-4, delta = 1E-5, gamma = 2,
 #' Generate parameters that control the IWLS iteration.
 #'
 #' @export
-control.iwls.gen <- function(maxit = 100, rel.tol = 1E-4, thresh = 1E-5, warn = FALSE){
+control.iwls.gen <- function(maxit = 1, rel.tol = 1E-4, thresh = 1E-5, warn = FALSE){
   l <- list(maxit = maxit, rel.tol = rel.tol, thresh = thresh, warn = warn)
   return(l)
 }

@@ -100,7 +100,7 @@ graph2ppt(pl, file = "Github/graphs", scaling = 50, append = TRUE)
 # constraints and regularization) is a the cost of timing performance.
 
 
-####---- BENCHMARK WITH GLMNET, A ----####
+####---- BENCHMARK WITH GLMNET, RIDGE AND PENALIZED ----####
 
 
 library(glmnet)
@@ -112,41 +112,45 @@ set.seed(123)
 n <- 100
 p <- 20
 x <- matrix(rnorm(n*p), nrow = n, ncol = p)
+x <- scale(x)
 beta <- runif(p, min = -1)
 y0 <- x %*% beta
 y <- y0 + rnorm(n, mean = 0, sd = 2.5)
+y <- scale(y)
+lam <- 1
 
 microbenchmark(
   # Ridge regression using glmnet
   "glmnet" = {
     glmnet_fit <- glmnet(x = x, y = y, family = "gaussian", alpha = 0,
                          standardize = FALSE, thresh = .Machine$double.eps,
-                         lambda = 10^seq(10,0), intercept = TRUE)
-    # Note: best lambda was tuned with 3-fold cv on sequence 10^seq(-10, 10)
+                         lambda = 10^seq(10,log10(lam)), intercept = TRUE)
   },
   # Ridge regression using ridge
   "ridge" = {
     ridge_fit <- linearRidge(y ~ 1 + ., data = data.frame(y = y, x),
-                             lambda = 1, scaling = "none")
+                             lambda = lam*n, scaling = "none")
   },
   "penalized" = {
     penal_fit <- penalized(response = y, penalized = x,
-                           lambda1 = 0, lambda2 = 1, positive = FALSE, model= "linear",
+                           lambda1 = 0, lambda2 = lam*n, positive = FALSE, model= "linear",
                            epsilon = .Machine$double.eps, maxiter = 25, trace = F)
   },
   # L0glm fitting (using glm settings)
   "L0glm (ridge settings)" = {
     L0glm_fit <- L0glm(y ~ 1 + ., data = data.frame(y = y, x),
                        family = gaussian(),
-                       lambda = 1, tune.meth = "none", nonnegative = FALSE,
+                       lambda = lam*n, tune.meth = "none", nonnegative = FALSE,
                        control.iwls = list(maxit = 25, thresh = .Machine$double.eps),
                        control.l0 = list(maxit = 1),
                        control.fit = list(maxit = 1, tol = .Machine$double.eps),
                        verbose = FALSE)
-    # Note: best lambda was tuned with 3-fold cv on sequence 10^seq(-10, 10)
   },
   times = 25
 )
+# Note: all lambdas except for glmnet are scaled with 'n'. This is to allow
+# comparing the same objective function as illustrated in https://stackoverflow.com/questions/39863367/ridge-regression-with-glmnet-gives-different-coefficients-than-what-i-compute
+
 # Check results
 df <- data.frame(coef.glmnet = as.vector(coef(glmnet_fit, s = 1)),
                  coef.ridge = coef(ridge_fit),
@@ -204,9 +208,12 @@ n <- 200
 p <- 500
 k <- 10
 data <- GenSynthetic(n = n, p = p, k = k, seed = 123)
-beta <-  c(rep(1, k), rep(0, p - k))
 x <- data$X
-y <- data$y
+x <- scale(x)
+beta <-  c(rep(1, k), rep(0, p - k))
+y <- x %*% beta + rnorm(n)
+y <- scale(y)
+# y <- data$y
 
 microbenchmark(
   # L0 penalized regression using L0Learn
@@ -409,6 +416,51 @@ L0glm_cv$lambda.tune$best.lam # 2.25702
 #### EXTRA TESTS ####
 
 
+
+#### TEST NEED FOR STANDARDIZATION ####
+
+
+# Simulate some data
+set.seed(1234)
+n = 200
+npeaks = 20
+sim <- simulate_spike_train(Plot = TRUE, n = n)
+x <- sim$X
+scales <- runif(n, min = -1E2, max = 1E2)
+x <- sweep(x, 2, scales, "*")
+beta <- runif(n, min = -1, max = 1)
+beta[sample(1:length(beta), size = length(beta)-25)] <- 0
+y0 <- x %*% beta
+y <- y0  + rnorm(n, sd = 2.5)
+plot(y)
+lines(y0)
+abline(h = 0)
+
+par(mfrow = c(3,1))
+plot(y, main = "True model")
+matlines(sweep(x, 2, beta, "*"), lty = 1, type = "l", col = "orange2")
+# No normalization
+L0glm.out <- L0glm(formula = y ~ 0 + ., data = data.frame(y = y, x),
+                   family = gaussian(identity),
+                   lambda = 1000, tune.meth = "none", nonnegative = FALSE,
+                   control.iwls = control.iwls.gen(maxit = 1),
+                   control.l0 = control.l0.gen(),
+                   control.fit = control.fit.gen())
+plot(y, main = "No normalization")
+matlines(sweep(x, 2, L0glm.out$coefficients, "*"), lty = 1, type = "l", col = "orange2")
+# With normalization
+x <- sweep(x, 2, apply(x, 2, norm, type = "2"), "/")
+L0glm.out <- L0glm(formula = y ~ 0 + ., data = data.frame(y = y, x),
+                   family = gaussian(identity),
+                   lambda = 1, tune.meth = "none", nonnegative = FALSE,
+                   control.iwls = control.iwls.gen(maxit = 1),
+                   control.l0 = control.l0.gen(),
+                   control.fit = control.fit.gen())
+plot(y, main = "With normalization")
+matlines(sweep(x, 2, L0glm.out$coefficients, "*"), lty = 1, type = "l", col = "orange2")
+
+
+
 #### TEST L0GLM AGAINST GLM ####
 
 # Compare L0glm against stats::glm
@@ -483,7 +535,9 @@ get.data.poisson.nn <- function(n = 200, npeaks = 20,seed = 123,
 ################################################################
 
 
-get.data.poisson.nn()
+sim <- simulate_spike_train(Plot = TRUE, n = n)
+X <- sim$X
+y <- sim$y
 # Test our package vs glm
 X.sub <- X[,seq(1,ncol(X), by = 5)]
 # gaussian: identity, log and inverse
@@ -493,7 +547,10 @@ X.sub <- X[,seq(1,ncol(X), by = 5)]
 # inverse.gaussian: 1/mu^2, inverse, identity and log.
 # TODO test the qusi families, quasi: logit, probit, cloglog, identity, inverse, log, 1/mu^2 and sqrt
 fam <- poisson()
-microbenchmark(cpglm <- pen.nnglm(X = X.sub, y = y, family = fam, lambda = 0, maxit.l0 = 1, maxit.iwnnls = 25, cv = "none", constr = "none"),
+microbenchmark(cpglm <- L0glm(y ~ 0 + ., data = data.frame(y = y, X.sub), family = fam, lambda = 0,
+                              control.l0 = control.l0.gen(maxit = 1),
+                              control.iwls = control.iwls.gen(maxit = 1),
+                              nonnegative = FALSE, tune.meth = "none", verbose = FALSE),
                glm <- glm.fit(x = X.sub, y = y, family = fam, control = list(maxit = 25, epsilon = 1E-8), intercept = FALSE),
                times = 50)
 cbind(cpglm = cpglm$coefficients, glm = glm$coefficients, diff.abs = abs(cpglm$coefficients - glm$coefficients))
