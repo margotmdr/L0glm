@@ -210,7 +210,7 @@ k <- 10
 data <- GenSynthetic(n = n, p = p, k = k, seed = 123)
 x <- data$X
 # x <- scale(x)
-# beta <-  c(rep(1, k), rep(0, p - k))
+beta <-  c(rep(1, k), rep(0, p - k))
 # y <- x %*% beta + rnorm(n)
 # y <- scale(y)
 y <- data$y
@@ -218,7 +218,7 @@ y <- data$y
 microbenchmark(
   # L0 penalized regression using L0Learn
   "L0Learn" = {
-    L0Learn_fit <- L0Learn.fit(x = x, y = y, penalty="L0", maxSuppSize = ncol(X),
+    L0Learn_fit <- L0Learn.fit(x = x, y = y, penalty="L0", maxSuppSize = ncol(x),
                                nGamma = 0, autoLambda = FALSE, lambdaGrid = list(1.56E-2),
                                tol = 1E-7)
   },
