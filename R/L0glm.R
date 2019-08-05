@@ -157,11 +157,8 @@
 #'
 #' \item{\strong{Character}}: In the case that L0 penalty is required (\emph{i.e.}
 #' \code{control.l0$maxit > 1}), lambda can be supplied as the information
-#' criterion to optimize. Possible values are
-#' \code{"aic"} (\eqn{\lambda = 2}),
-#' \code{"bic"} (\eqn{\lambda = ln(n)}),
-#' \code{"hq"} (\eqn{\lambda = 2 ln(ln(n))}), or
-#' \code{"bicq"} (\eqn{\lambda = ln(n) - 2 ln(\frac{q}{1-q})}, where q = 0.25).
+#' criterion to optimize. Possible values are \code{"aic"}, \code{"bic"},
+#' \code{"hq"}, or \code{"bicq"}.
 #' }
 #'
 #' The lambda tuning can be performed using 3 different methods:
@@ -323,14 +320,13 @@ L0glm <- function(formula,
     control.l0$maxit <- 1
     warning("When no penalty is required (ie lambda == 0), there is no need for adaptive ridge iteration. Setting control.l0$maxit = 1.")
   }
+  # Lambda supplied as an IC
+  # In case of L0 penalty, the objective function is closely related to IC's
+  # such as AIC or BIC
   if(is.character(lambda)){
     if(control.l0$maxit == 1) stop("You cannot specify lambda as an information criterion without L0 penalty.")
-    lambda <- switch(lambda,
-                     aic = 2,
-                     bic = log(n),
-                     hq = 2*log(log(n)), # Hannan and Quinnn information criterion,
-                     bicq = log(n) - 2*log(0.25/(1-0.25)), # TODO q = 0.25 should be a constant to optimize...
-                     stop("invalid information criterion for initializing lambda."))
+    lambda <- preset.lambda(IC = lambda, y = y, X = X, weights = weights,
+                            family = family, start = start)
     tune.meth = "none"
     tune.crit = NA
   }
@@ -564,7 +560,7 @@ glm.iwls <- function(X, y, weights, family,
                      control.iwls = list(maxit = 1, rel.tol = 1E-4, thresh = 1E-5, warn = FALSE),
                      control.fit = list(maxit = 10, block.size = NULL, tol = 1E-7),
                      converged_set = rep(FALSE, ncol(X))){
-  n <- nrow(X)
+  n <- N <- nrow(X)
   p <- ncol(X)
 
   if (p == 0) { # IN case a NULL model is fit, this chunk is taken from 'glm'
@@ -604,6 +600,7 @@ glm.iwls <- function(X, y, weights, family,
     nobs <- n # needed for evaluating the initialization
     etastart <- mustart <- NULL # needed for evaluating the initialization
     eval(family$initialize) # generates mustart
+    n <- N
     mu <- mustart
     eta <- family$linkfun(mustart)
   }
