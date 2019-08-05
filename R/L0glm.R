@@ -613,24 +613,24 @@ glm.iwls <- function(X, y, weights, family,
   nonzero <- rep(TRUE, ncol(X)) # nonzero coefficients
   for(j in 1:control.iwls$maxit) {
 
-    # Update partial residuals
-    # We work on partial residuals yres, ie the model predictions minus the
-    # predictions for covariates with nonzero coefficients that already
-    # converged. This allows for a dramatic speed up after the 1st iteration.
-    yres <- y - as.vector(X[, converged_set & nonzero, drop=F] %*% beta[converged_set & nonzero])
-
     # Linearize the response and adapt weights
     # The updates use Fisher scoring, which is Newton-Raphson with
     # the expected Hessian, see
     # https://stats.stackexchange.com/questions/344309/why-using-newtons-method-for-logistic-regression-optimization-is-called-iterati
     if(family$link == "identity"){ # simplified formula and faster than formula in else statement
       W <- W0 <- as.vector(weights/family$variance(mu)) # 1/variance (* weights) with identity link, where variance = 1 with Gaussian noise, variance = mu with Poisson noise, variance = mu^2 with Gamma noise
-      z <- yres
+      z <- y
     } else {
       mu.prime <- family$mu.eta(eta)
-      z <- as.vector(eta + (yres - mu) / mu.prime) # TODO Remove offset here if needed.
+      z <- as.vector(eta + (y - mu) / mu.prime) # TODO Remove offset here if needed.
       W <- W0 <- as.vector(weights * mu.prime^2 / family$variance(mu))
     }
+
+    # Update partial residuals
+    # We work on partial residuals on trasnformed scale z, ie the scaled model
+    # predictions minus the predictions for covariates with nonzero coefficients
+    # that already converged. This allows for a dramatic speed up after the 1st iteration.
+    z <- z - as.vector(X[, converged_set & nonzero, drop=F] %*% beta[converged_set & nonzero])
 
     # Row augmentation of the updated weights and observations
     if(sum(lambda) != 0) {
