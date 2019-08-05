@@ -218,7 +218,7 @@ y <- scale(y)
 microbenchmark(
   # L0 penalized regression using L0Learn
   "L0Learn" = {
-    L0Learn_fit <- L0Learn.fit(x = x, y = y, penalty="L0", maxSuppSize = ncol(x),
+    L0Learn_fit <- L0Learn.fit(x = x, y = y, penalty="L0", maxSuppSize = ncol(X),
                                nGamma = 0, autoLambda = FALSE, lambdaGrid = list(1.56E-2),
                                tol = 1E-7)
   },
@@ -589,7 +589,7 @@ X.sub <- X[,seq(1,ncol(X), by = 5)]
 # Gamma: inverse, identity and log
 # poisson: log, identity, and sqrt
 # inverse.gaussian: 1/mu^2, inverse, identity and log.
-# TODO test the quasi families, quasi: logit, probit, cloglog, identity, inverse, log, 1/mu^2 and sqrt
+# TODO test the qusi families, quasi: logit, probit, cloglog, identity, inverse, log, 1/mu^2 and sqrt
 fam <- binomial()
 microbenchmark(cpglm <- pen.nnglm(X = X.sub, y = y, family = fam, lambda = 0, maxit.l0 = 1, maxit.iwnnls = 25, cv = "none", constr = "none"),
                glm <- glm.fit(x = X.sub, y = y, family = fam, control = list(maxit = 25, epsilon = 1E-8), intercept = FALSE),
