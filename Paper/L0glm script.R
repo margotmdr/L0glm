@@ -287,6 +287,27 @@ graph2ppt(pl, file = "Github/graphs", scaling = 50, append = TRUE)
 
 
 # TODO delete
+
+GenSynthetic = function (n, p, k, seed = 123, sd = 1) {
+  set.seed(seed)
+  X = matrix(rnorm(n * p), nrow = n, ncol = p)
+  B = c(rep(1, k), rep(0, p - k))
+  e = rnorm(n, mean = 0, sd = sd)
+  y = X %*% B + e
+  list(X = X, y = y)
+}
+
+n <- 200
+p <- 500
+k <- 10
+data <- GenSynthetic(n = n, p = p, k = k, sd = 2, seed = 123)
+x <- data$X
+# x <- scale(x)
+beta <-  c(rep(1, k), rep(0, p - k))
+# y <- x %*% beta + rnorm(n)
+# y <- scale(y)
+y <- data$y
+
 # Select lambda
 # L0Learn
 test1 <- L0Learn.cvfit(x = x, y = y, loss = "SquaredError", penalty = "L0",
@@ -315,6 +336,15 @@ test4 <- L0glm(y ~ 1 + ., data = data.frame(y = y, x),
 plot(test4$lambda.tune$lambdas, test4$lambda.tune$IC[,"rss"], type = "l", log = "xy")
 test4$lambda.tune$best.lam
 
+plot(test4$lambda.tune$lambdas, test4$lambda.tune$IC[,"aic"], type = "l", log = "xy")
+test4$lambda.tune$lambdas[which.min(test4$lambda.tune$IC[,"aic"])]
+# lambda that minimizes AIC = 3.98 if sd=1, 0.0398 if sd=0.1
+# so this value = sd^2 * factor 4 of Frommlet & Nuel (proven for orthogonal design)
+
+plot(test4$lambda.tune$lambdas, test4$lambda.tune$IC[,"bic"], type = "l", log = "xy")
+test4$lambda.tune$lambdas[which.min(test4$lambda.tune$IC[,"bic"])]
+# lambda that minimizes BIC = 3.98 if sd=1, 0.0398 if sd=0.1
+#  this value should be = sd^2 * factor 4 of Frommlet & Nuel (proven for orthogonal design)
 
 ####---- COMPARE L0 PENALTY WITH LASSO, MCP, OR SCAD PENALTY ----####
 
@@ -370,9 +400,9 @@ TN/(TN + FP) # specificity
 
 # Plot results
 data <- data.frame(y = unlist(df),
-                   x = rep(1:(p+1), ncol(df)),
-                   type = rep(c("lasso", "mcp", "scad", "L0", "true"), each = p+1))
-nz <- (1:(p+1)) %in% 2:(k+1)
+                   x = rep(1:p, ncol(df)),
+                   type = rep(c("lasso", "mcp", "scad", "L0", "true"), each = p))
+nz <- (1:p) %in% 2:k
 pl <- ggplot(data = data[nz,], aes(x = x, y = y, color = type)) +
   geom_point() + geom_line() +
   ggtitle("Compare true nonzero coefficients with coefficient estimated \nusing lasso, MCP, SCAD, or L0 penalties") +
@@ -656,7 +686,6 @@ plot_L0glm_benchmark(x = x, y = y, fit = glmnet.fit, a.true = a,
 ################################################################
 #### COMPARE OUR PACKAGE VS OTHER PACKAGE FOR L0 REGRESSION ####
 ################################################################
-
 
 library(L0Learn)
 # Simulate some data
