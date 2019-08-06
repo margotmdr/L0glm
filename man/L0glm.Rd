@@ -11,14 +11,15 @@ L0glm(formula, data = NULL, weights = rep(1, length(y)),
   lambda = 0, no.pen = 0, nonnegative = FALSE, normalize = TRUE,
   control.l0 = list(), control.iwls = list(), control.fit = list(),
   post.filter.fn = function(u) return(u), tune.meth = "none",
-  tune.crit = "bic", seed = NULL, verbose = TRUE)
+  tune.crit = "bic", train.vs.val = 0.9, seed = NULL,
+  verbose = TRUE)
 
 L0glm.fit(X, y, weights = rep(1, length(y)),
   family = poisson(identity), lambda = 0, start = NULL,
-  nonnegative = FALSE, post.filter.fn = function(u) return(u),
-  control.l0 = list(maxit = 100, rel.tol = 1e-04, delta = 1e-05, gamma =
-  2, warn = FALSE), control.iwls = list(maxit = 1, rel.tol = 1e-04,
-  thresh = 1e-05, warn = FALSE), control.fit = list(maxit = 10,
+  nonnegative = FALSE, normalize, post.filter.fn = function(u)
+  return(u), control.l0 = list(maxit = 100, rel.tol = 1e-04, delta =
+  1e-05, gamma = 2, warn = FALSE), control.iwls = list(maxit = 1, rel.tol
+  = 1e-04, thresh = 1e-05, warn = FALSE), control.fit = list(maxit = 10,
   block.size = NULL, tol = 1e-07))
 
 glm.iwls(X, y, weights, family, start = NULL, lambda = rep(0, ncol(X)),
@@ -117,7 +118,12 @@ k should be a numeric indicating the number of folds to use).}
 \code{"rss"}, \code{"aicc"}, \code{"ebic"}, \code{"hq"}, \code{"ric"},
 \code{"mric"}, \code{"cic"}, \code{"bicg"}, \code{"bicq"})}
 
-\item{seed}{a seed to use in case of \code{"k-fold"} CV.}
+\item{train.vs.val}{a value between \code{1/n} and \code{1-1/n} which indicates the proportion
+of observations that will be allocated to the training set. This is used only
+in the case that \code{tune.meth == "trainval"}, ignored otherwise.}
+
+\item{seed}{a seed to use. Used only for the \code{"k-fold"} CV and training validation set
+(\code{"trainval"}) tuning methods.}
 
 \item{verbose}{print algorithm progression to console ?}
 
@@ -271,7 +277,7 @@ y <- sim$y
 
 # Case I: fit nonnegative identity link Poisson GLM with no penalty
 L0glm1 <- L0glm(formula = "y ~ 0 + .", data = data.frame(X, y = y), family = poisson(identity),
-                lambda = 0, tune.meth = "none", nonnegative = TRUE, normalize = FALSE,
+                lambda = 0, tune.meth = "none", nonnegative = TRUE,
                 control.iwls = list(maxit = 100),
                 control.l0 = list(maxit = 1, delta = 1E-2, gamma = 1.8))
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm1, a.true = sim$a,
@@ -279,7 +285,7 @@ plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm1, a.true = sim$a,
 
 # Case II: fit nonnegative identity link Poisson GLM with ridge penalty
 L0glm2 <- L0glm(formula = "y ~ 0 + .", data = data.frame(X, y = y), family = poisson(identity),
-                lambda = 1, tune.meth = "none", nonnegative = TRUE, normalize = FALSE,
+                lambda = 1, tune.meth = "none", nonnegative = TRUE,
                 control.iwls = list(maxit = 100),
                 control.l0 = list(maxit = 1))
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm2, a.true = sim$a,
@@ -299,9 +305,7 @@ plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm3, a.true = sim$a,
 # Case IV: fit nonnegative identity link Poisson GLM with L0 penalty and a fixed
 #          lambda (no lambda selection)
 L0glm4 <- L0glm(formula = "y ~ 0 + .", data = data.frame(X, y = y), family = poisson(identity),
-                lambda = 1, tune.meth = "none", nonnegative = TRUE, normalize = FALSE,
-                control.iwls = list(maxit = 100),
-                control.l0 = list(maxit = 100))
+                lambda = 1, tune.meth = "none", nonnegative = TRUE, normalize = FALSE)
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm4, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates")
 
@@ -310,9 +314,7 @@ plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm4, a.true = sim$a,
 #         optimized lambda using IC on full data
 L0glm5 <- L0glm(formula = "y ~ 0 + .", data = data.frame(X, y = y), family = poisson(identity),
                 lambda = 10^seq(-3,3, length.out = 51), # Use arbitrary sequence
-                tune.crit = "bic", tune.meth = "IC", nonnegative = TRUE, normalize = FALSE,
-                control.iwls = list(maxit = 1),
-                control.l0 = list(maxit = 100))
+                tune.crit = "bic", tune.meth = "IC", nonnegative = TRUE, normalize = FALSE)
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm5, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates (BIC tuning)")
 
@@ -320,9 +322,7 @@ plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm5, a.true = sim$a,
 #           optimized lambda using training and validation set
 L0glm6 <- L0glm(formula = "y ~ 0 + .", data = data.frame(X, y = y), family = poisson(identity),
                 lambda = 10^seq(-3,3, length.out = 51), # Use arbitrary sequence
-                tune.crit = "bic", tune.meth = "trainval", nonnegative = TRUE, normalize = FALSE,
-                control.iwls = list(maxit = 1),
-                control.l0 = list(maxit = 100))
+                tune.crit = "bic", tune.meth = "trainval", nonnegative = TRUE, normalize = FALSE)
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm6, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates (Training/validation set)")
 
@@ -330,9 +330,7 @@ plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm6, a.true = sim$a,
 #           optimized lambda using 3-fold CV
 L0glm7 <- L0glm(formula = "y ~ 0 + .", data = data.frame(X, y = y), family = poisson(identity),
                 lambda = 10^seq(-3,3, length.out = 51), # Use arbitrary sequence
-                tune.crit = "bic", tune.meth = "3-fold", nonnegative = TRUE, normalize = FALSE,
-                control.iwls = list(maxit = 1),
-                control.l0 = list(maxit = 100))
+                tune.crit = "bic", tune.meth = "3-fold", nonnegative = TRUE, normalize = FALSE)
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm7, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates (3-fold CV)")
 
@@ -340,9 +338,7 @@ plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm7, a.true = sim$a,
 #            optimized lambda using LOOCV
 L0glm8 <- L0glm(formula = "y ~ 0 + .", data = data.frame(X, y = y), family = poisson(identity),
                 lambda = 10^seq(-3,3, length.out = 51), # Use arbitrary sequence
-                tune.meth = "loocv", nonnegative = TRUE, normalize = FALSE,
-                control.iwls = list(maxit = 1),
-                control.l0 = list(maxit = 100))
+                tune.meth = "loocv", nonnegative = TRUE, normalize = FALSE)
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm8, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates (LOOCV)")
 }
@@ -351,9 +347,7 @@ plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm8, a.true = sim$a,
 #          prespecify lambda using BIC
 L0glm9 <- L0glm(formula = "y ~ 0 + .", data = data.frame(X, y = y), family = poisson(identity),
                 lambda = "aic", # set lambda that minimize the expected BIC
-                nonnegative = TRUE, normalize = FALSE,
-                control.iwls = list(maxit = 1),
-                control.l0 = list(maxit = 100))
+                nonnegative = TRUE, normalize = FALSE)
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm9, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates (prespecified with BIC)")
 }

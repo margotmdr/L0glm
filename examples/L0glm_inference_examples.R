@@ -18,7 +18,8 @@ L0glm_fit <- L0glm(formula = "y ~ 0 + .", data = data.frame(X, y = y),
 # Perform inference on the coefficients
 system.time(L0glm_infer <- L0glm.inference(L0glm_fit, level = 0.95, boot.repl = 1000,
                                            control.fit = ctrl.fit,
-                                           control.iwls = ctrl.iwls, control.l0 = ctrl.l0))
+                                           control.iwls = ctrl.iwls, control.l0 = ctrl.l0,
+                                           parallel = "snow", ncpus = 10))
 # Plot results
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm_fit, inference = L0glm_infer, a.true = sim$a,
                      main="Ground truth vs L0glm estimates (with ridge penalty)")

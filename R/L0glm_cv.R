@@ -14,6 +14,7 @@ L0glm.trainval <- function(X, y,
                            post.filter.fn = function(u) return(u),
                            tune.crit = "bic",
                            seed = NULL,
+                           train.vs.val = 0.9,
                            verbose = FALSE){
   n <- nrow(X)
   p <- ncol(X)
@@ -21,7 +22,7 @@ L0glm.trainval <- function(X, y,
   if(!is.null(seed)) set.seed(seed)
   if(n < 10) stop("At least 10 observations are needed to split data in training and
                   validation set.")
-  train <- sample(1:n, size = round(n*0.9))
+  train <- sample(1:n, size = round(n*train.vs.val))
   fits <- lapply(lambdas, function(lambda){
     fit <- L0glm.qual(lambda = lambda, crit = "all", no.pen = no.pen,
                       X = X[train,], y = y[train], weights = weights[train],

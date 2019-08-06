@@ -4,8 +4,8 @@
 \alias{L0glm.inference}
 \title{Inference on L0glm Models}
 \usage{
-L0glm.inference(fit, level = 0.95, boot.repl = 200, control.l0,
-  control.iwls, control.fit, verbose = TRUE)
+L0glm.inference(fit, level = 0.95, boot.repl = 1000, control.l0,
+  control.iwls, control.fit, verbose = TRUE, ...)
 }
 \arguments{
 \item{fit}{an \code{L0glm} object (see \code{\link{L0glm}}).}
@@ -29,6 +29,8 @@ and \code{\link{L0glm}}).This should be the same parameters as used
 to compute \code{fit}.}
 
 \item{verbose}{print algorithm progression to console ?}
+
+\item{...}{further arguments passed to boot (namely for parallelization, see \code{\link{boot}}).}
 }
 \value{
 \code{L0glm.inference} returns a list containing the following elements:
@@ -99,7 +101,8 @@ L0glm_fit <- L0glm(formula = "y ~ 0 + .", data = data.frame(X, y = y),
 # Perform inference on the coefficients
 system.time(L0glm_infer <- L0glm.inference(L0glm_fit, level = 0.95, boot.repl = 1000,
                                            control.fit = ctrl.fit,
-                                           control.iwls = ctrl.iwls, control.l0 = ctrl.l0))
+                                           control.iwls = ctrl.iwls, control.l0 = ctrl.l0,
+                                           parallel = "snow", ncpus = 10))
 # Plot results
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm_fit, inference = L0glm_infer, a.true = sim$a,
                      main="Ground truth vs L0glm estimates (with ridge penalty)")

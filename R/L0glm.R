@@ -102,8 +102,13 @@
 #' \code{"all"}, \code{"bic"}, \code{"aic"}, \code{"loglik"}, \code{"loocv"},
 #' \code{"rss"}, \code{"aicc"}, \code{"ebic"}, \code{"hq"}, \code{"ric"},
 #' \code{"mric"}, \code{"cic"}, \code{"bicg"}, \code{"bicq"})
+#' @param train.vs.val
+#' a value between \code{1/n} and \code{1-1/n} which indicates the proportion
+#' of observations that will be allocated to the training set. This is used only
+#' in the case that \code{tune.meth == "trainval"}, ignored otherwise.
 #' @param seed
-#' a seed to use in case of \code{"k-fold"} CV.
+#' a seed to use. Used only for the \code{"k-fold"} CV and training validation set
+#' (\code{"trainval"}) tuning methods.
 #' @param verbose
 #' print algorithm progression to console ?
 #' @param converged_set
@@ -270,6 +275,7 @@ L0glm <- function(formula,
                   # TODO make CV arguments a single list, eg tune.control ?
                   tune.meth = "none",
                   tune.crit = "bic",
+                  train.vs.val = 0.9,
                   seed = NULL, # set seed for k-fold CV
                   # More params
                   verbose = TRUE){
@@ -380,12 +386,13 @@ L0glm <- function(formula,
   } else if (tune.meth %in%c("trainval", "IC", "loocv") || grepl(pattern = "^\\d+-fold$", tune.meth)) {
     if(length(lambda)<2) stop("Need more than one lambda value for optimization.")
     if(tune.meth == "trainval"){
+      if(train.vs.val < 1/n | train.vs.val > 1- 1/n) stop("The supplied 'train.vs.val' is not suitable. Supply a value between '1/n' and '1-1/n' to avoid empty sets.")
       lambda.tune <- L0glm.trainval(X, y, weights = weights, family = family,
                                     start = start, lambdas = lambda, no.pen = no.pen,
                                     nonnegative = nonnegative, normalize = normalize,
                                     control.l0 = control.l0, control.iwls = control.iwls,
                                     control.fit = control.fit, tune.crit = tune.crit, seed = seed,
-                                    verbose = verbose)
+                                    train.vs.val = train.vs.val, verbose = verbose)
     } else if(tune.meth == "IC"){
       lambda.tune <- L0glm.IC(X, y, weights = weights, family = family,
                               start = start, lambdas = lambda, no.pen = no.pen,
@@ -513,7 +520,7 @@ L0glm.fit <- function(X, y,
 
   # Normalize data
   if(normalize){
-    X.n <- apply(X, 2, norm, type = "2")
+    X.n <- apply(X, 2, norm, type = "2") # TODO this is not efficient if X is a large sparse matrix
     X <- sweep(X, 2, X.n, "/")
   }
 

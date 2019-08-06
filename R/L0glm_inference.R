@@ -28,6 +28,8 @@
 #' to compute \code{fit}.
 #' @param verbose
 #' print algorithm progression to console ?
+#' @param ...
+#' further arguments passed to boot (namely for parallelization, see \code{\link{boot}}).
 #'
 #' @details
 #'
@@ -83,9 +85,9 @@
 #' @example examples/L0glm_inference_examples.R
 #'
 #' @export
-L0glm.inference <- function(fit, level = 0.95, boot.repl = 200,
+L0glm.inference <- function(fit, level = 0.95, boot.repl = 1000,
                             control.l0, control.iwls, control.fit,
-                            verbose = TRUE){
+                            verbose = TRUE, ...){
 
   # Extract data structure from the formula (code taken from stats::glm)
   formula <- eval(fit$call$formula)
@@ -190,7 +192,8 @@ L0glm.inference <- function(fit, level = 0.95, boot.repl = 200,
                             control.iwls = control.iwls, control.fit = control.fit,
                             post.filter.fn = fit$post.filter.fn,
                             # boot arguments
-                            statistic = L0glm.bfun, R = boot.repl, stype = "i")
+                            statistic = L0glm.bfun, R = boot.repl, stype = "i",
+                            ...)
     out$estimates <- out$boot.result$t0
     # Confidence intervals
     # Check https://stats.stackexchange.com/questions/20701/computing-p-value-using-bootstrap-with-r
