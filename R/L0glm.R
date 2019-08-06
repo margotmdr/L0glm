@@ -2,6 +2,7 @@
 #'
 #' @import nnls
 #' @import Matrix
+#' @import glmnet
 #' @importFrom stats gaussian lm.fit pnorm poisson qnorm quantile rpois runif
 #' @importFrom utils flush.console
 #'
@@ -39,6 +40,10 @@
 #' be penalized.
 #' @param nonnegative
 #' a logical indicating whether nonnegativity constraints should be applied.
+#' @param normalize
+#' should the covariate matrix be normalized with the L2 norm (Euclidean norm)?
+#' It is advised to use normalization unless the covariates were measures on a
+#' similar unit scale.
 #' @param control.l0
 #' list of parameters controling the L0 penalty loop (see details). The list
 #' should contain the following elements:
@@ -90,7 +95,7 @@
 #' filtering.
 #' @param tune.meth
 #' lambda selection method (see details). It should be one of \code{"none"},
-#' \code{"IC"}, \code{"loocv"}, \code{"k-fold"} (where
+#' \code{"IC"}, \code{"trainval"}, \code{"loocv"}, \code{"k-fold"} (where
 #' k should be a numeric indicating the number of folds to use).
 #' @param tune.crit
 #' the criterion based on which to select the optimal lambda. Should be one of
@@ -257,6 +262,7 @@ L0glm <- function(formula,
                   contrasts = NULL,
                   lambda = 0, no.pen = 0,
                   nonnegative = FALSE,
+                  normalize = TRUE,
                   control.l0 = list(),
                   control.iwls = list(),
                   control.fit = list(),
@@ -303,6 +309,12 @@ L0glm <- function(formula,
   n <- nrow(X) # nr of obersvations
   p <- ncol(X) # nr of covariates
 
+  # Normalize data
+  if(normalize){
+    X.n <- apply(X, 2, norm, type = "2")
+    X <- sweep(X, 2, X.n, "/")
+  }
+
   if(control.l0$warn && control.l0$delta > control.iwls$thresh){
     control.l0$delta <- control.iwls$thresh
     warning("control.l0$delta > control.iwls$thresh. To avoid artifacts control.l0$delta is decreased to control.iwls$thresh")
@@ -325,15 +337,16 @@ L0glm <- function(formula,
   # such as AIC or BIC
   if(is.character(lambda)){
     if(control.l0$maxit == 1) stop("You cannot specify lambda as an information criterion without L0 penalty.")
+    tune.crit = lambda
     lambda <- preset.lambda(IC = lambda, y = y, X = X, weights = weights,
                             family = family, start = start)
-    tune.meth = "none"
-    tune.crit = NA
+    tune.meth = "preset"
   }
   if(tune.meth == "loocv") { # LOOCV is performed on the full data using the shortcut as described in https://scholarworks.gsu.edu/cgi/viewcontent.cgi?referer=https://scholar.google.com/&httpsredir=1&article=1100&context=math_theses
     tune.meth <- "IC"
     tune.crit <- "loocv"
   }
+
   tune.crit <- match.arg(tune.crit, c("all", "bic", "aic", "loglik", "loocv", "rss", "aicc", "ebic",
                                       "hq", "ric", "mric", "cic",  "bicg", "bicq"))
 
@@ -351,7 +364,7 @@ L0glm <- function(formula,
     lambda <- lambda[lambda < lam.max]
     if(length(lambda) == 0) stop("No valid lambda supplied, try using lower lambda values.")
   }
-  if(tune.meth == "none"){
+  if(tune.meth %in% c("none", "preset")){
     tune.crit <- NA
     if(length(lambda) > 1){
       fits <- lapply(lambda, function(l){
@@ -474,6 +487,9 @@ L0glm <- function(formula,
   # tss <- sum(w * (z - z.null)^2) # total sums of squares
   # fit$R.squared <- list(R.squared = mss/tss, # = Model SS / Total SS
   #                       type = ifelse(is.null(coefficients.true), "sample", "population"))
+
+  # Reassign norms
+  if(normalize) fit$coefficients <- fit$coefficients / X.n
 
   # Return solution
   fit <- fit[sort(names(fit))]

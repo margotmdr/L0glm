@@ -358,7 +358,7 @@ preset.lambda <- function(IC, y, X, weights, family, start){
                    bic = log(n) * lambda.hat,
                    hq = 2*log(log(n)) * lambda.hat, # Hannan and Quinnn information criterion,
                    bicq = log(n) - 2*log(0.25/(1-0.25)) * lambda.hat, # TODO q = 0.25 should be a constant to optimize...
-                   stop("invalid information criterion for initializing lambda."))
+                   stop("invalid information criterion for initializing lambda. It must be one of 'aic', 'bic', 'hq', 'bicq'."))
   return(lambda)
 }
 

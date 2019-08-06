@@ -173,6 +173,14 @@ L0glm.inference <- function(fit, level = 0.95, boot.repl = 200,
     out$z <- abs(out$estimates/out$SE)
     out$p.value <- pnorm(out$z, lower.tail = FALSE)*2
   } else { # Otherwise Coefficient inference using bootstraping
+    # Normalize data
+    normalize <- fit$call$normalize
+    if(is.null(normalize)) normalize <- TRUE
+    if(normalize){
+      X.n <- apply(X, 2, norm, type = "2")
+      X <- sweep(X, 2, X.n, "/")
+    }
+
     lambda <- max(unique(fit$lambda))
     no.pen <- which(fit$lambda == 0)
     if(verbose){
@@ -187,6 +195,11 @@ L0glm.inference <- function(fit, level = 0.95, boot.repl = 200,
                             # boot arguments
                             statistic = L0glm.bfun, R = boot.repl, stype = "i")
     out$estimates <- out$boot.result$t0
+    # Reassign norms
+    if(normalize){
+      out$estimates <- out$estimates * X.n
+      out$boot.result$t <- sweep(out$boot.result$t, 2, X.n, "*")
+    }
     # Confidence intervals
     # Check https://stats.stackexchange.com/questions/20701/computing-p-value-using-bootstrap-with-r
     # or https://tolstoy.newcastle.edu.au/R/e6/help/09/04/11096.html

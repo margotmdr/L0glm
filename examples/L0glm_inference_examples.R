@@ -9,9 +9,10 @@ ctrl.iwls <- control.iwls.gen(maxit = 1)
 ctrl.l0 <- control.l0.gen() # No L0 penalty
 
 # Fit nonnegative identity link Poisson GLM with L0 penalty
-L0glm_fit <- L0glm(formula = "y ~ 0 + .", data = data.frame(X, y = y), family = poisson(identity),
-                   nonnegative = TRUE, lambda = 1, tune.meth = "none", control.fit = ctrl.fit,
-                   control.iwls = ctrl.iwls, control.l0 = ctrl.l0)
+L0glm_fit <- L0glm(formula = "y ~ 0 + .", data = data.frame(X, y = y),
+                   family = poisson(identity), nonnegative = TRUE,
+                   normalize = FALSE, lambda = 1, tune.meth = "none",
+                   control.fit = ctrl.fit, control.iwls = ctrl.iwls, control.l0 = ctrl.l0)
 
 \donttest{ # Code below is computationally costly
 # Perform inference on the coefficients
