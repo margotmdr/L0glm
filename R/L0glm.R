@@ -309,12 +309,6 @@ L0glm <- function(formula,
   n <- nrow(X) # nr of obersvations
   p <- ncol(X) # nr of covariates
 
-  # Normalize data
-  if(normalize){
-    X.n <- apply(X, 2, norm, type = "2")
-    X <- sweep(X, 2, X.n, "/")
-  }
-
   if(control.l0$warn && control.l0$delta > control.iwls$thresh){
     control.l0$delta <- control.iwls$thresh
     warning("control.l0$delta > control.iwls$thresh. To avoid artifacts control.l0$delta is decreased to control.iwls$thresh")
@@ -371,7 +365,7 @@ L0glm <- function(formula,
         l <- rep(l, p)
         l[no.pen] <- 0
         fit <- L0glm.fit(X = X, y = y, weights = weights, family = family,
-                         lambda = l, start = start, nonnegative = nonnegative,
+                         lambda = l, start = start, nonnegative = nonnegative, normalize = normalize,
                          control.l0 = control.l0, control.iwls = control.iwls, control.fit = control.fit,
                          post.filter.fn = post.filter.fn)
       })
@@ -388,26 +382,26 @@ L0glm <- function(formula,
     if(tune.meth == "trainval"){
       lambda.tune <- L0glm.trainval(X, y, weights = weights, family = family,
                                     start = start, lambdas = lambda, no.pen = no.pen,
-                                    nonnegative = nonnegative, control.l0 = control.l0,
-                                    control.iwls = control.iwls, control.fit = control.fit,
-                                    tune.crit = tune.crit, seed = seed,
+                                    nonnegative = nonnegative, normalize = normalize,
+                                    control.l0 = control.l0, control.iwls = control.iwls,
+                                    control.fit = control.fit, tune.crit = tune.crit, seed = seed,
                                     verbose = verbose)
     } else if(tune.meth == "IC"){
       lambda.tune <- L0glm.IC(X, y, weights = weights, family = family,
                               start = start, lambdas = lambda, no.pen = no.pen,
-                              nonnegative = nonnegative, control.l0 = control.l0,
-                              control.iwls = control.iwls, control.fit = control.fit,
-                              tune.crit = tune.crit,
+                              nonnegative = nonnegative, normalize = normalize,
+                              control.l0 = control.l0, control.iwls = control.iwls,
+                              control.fit = control.fit, tune.crit = tune.crit,
                               verbose = verbose)
     } else { # if tune.meth == "x-fold"
       k <- round(as.numeric(gsub(tune.meth, pattern = "-fold", replacement = "")))
       if(k < 2) stop("'tune.meth' should be at least 2-fold")
       lambda.tune <- L0glm.cv(X, y, weights = weights, family = family,
                               start = start, lambdas = lambda, no.pen = no.pen,
-                              nonnegative = nonnegative, control.l0 = control.l0,
-                              control.iwls = control.iwls, control.fit = control.fit,
-                              tune.crit = tune.crit, k = k, seed = seed,
-                              verbose = verbose)
+                              nonnegative = nonnegative, normalize = normalize,
+                              control.l0 = control.l0, control.iwls = control.iwls,
+                              control.fit = control.fit, tune.crit = tune.crit,
+                              k = k, seed = seed, verbose = verbose)
     }
     lambda <- lambda.tune$best.lam
   } else {
@@ -425,9 +419,9 @@ L0glm <- function(formula,
                          "Fitting in progress...\n"))
   t1 <- proc.time()[3]
   fit <- L0glm.fit(X = X, y = y, weights = weights, family = family, lambda = lambda,
-                   start = start, nonnegative = nonnegative, control.l0 = control.l0,
-                   control.iwls = control.iwls, control.fit = control.fit,
-                   post.filter.fn = post.filter.fn)
+                   start = start, nonnegative = nonnegative, normalize = normalize,
+                   control.l0 = control.l0, control.iwls = control.iwls,
+                   control.fit = control.fit, post.filter.fn = post.filter.fn)
   fit$timing <- proc.time()[3] - t1
   if(verbose) cat(paste0("Converged: ", ifelse(fit$converged.l0, "yes", "no"), "\n",
                          "Number of adaptive ridge (L0 penalty) iterations: ", fit$iter.l0, "\n",
@@ -488,9 +482,6 @@ L0glm <- function(formula,
   # fit$R.squared <- list(R.squared = mss/tss, # = Model SS / Total SS
   #                       type = ifelse(is.null(coefficients.true), "sample", "population"))
 
-  # Reassign norms
-  if(normalize) fit$coefficients <- fit$coefficients / X.n
-
   # Return solution
   fit <- fit[sort(names(fit))]
   return(structure(fit, class = "L0glm"))
@@ -510,6 +501,7 @@ L0glm.fit <- function(X, y,
                       lambda = 0,
                       start = NULL,
                       nonnegative = FALSE,
+                      normalize, # TODO add after testing:  = TRUE,
                       post.filter.fn = function(u) return(u),
                       control.l0 = list(maxit = 100, rel.tol = 1E-4, delta = 1E-5, gamma = 2, warn = FALSE),
                       control.iwls = list(maxit = 1, rel.tol = 1E-4, thresh = 1E-5, warn = FALSE),
@@ -518,6 +510,12 @@ L0glm.fit <- function(X, y,
   p <- ncol(X)
   if(length(lambda) == 1) lambda <- rep(lambda, p)
   y <- as.vector(y)
+
+  # Normalize data
+  if(normalize){
+    X.n <- apply(X, 2, norm, type = "2")
+    X <- sweep(X, 2, X.n, "/")
+  }
 
   # The adaptive ridge loop
   mask <- rep(FALSE, p)
@@ -541,9 +539,6 @@ L0glm.fit <- function(X, y,
     mask[is.na(mask)] <- TRUE
     stop.loop <- sum(mask) >= (p-1)
 
-    # TODO Delete
-    # plot(beta, type = "h", col = 2, main = i)
-    # Sys.sleep(0.5)
     if(stop.loop) break
   }
   if(control.l0$warn && control.l0$maxit > 1 && !stop.loop)
@@ -555,6 +550,9 @@ L0glm.fit <- function(X, y,
   fit$lambda.w <- lambda_adap/lambda # Converged lambda weights
   fit$lambda.w[is.na(fit$lambda.w)] <- 0 # happens when dividing by 0
   fit$converged.l0 <- stop.loop || control.l0$maxit == 1
+
+  # Reassign norms
+  if(normalize) fit$coefficients <- fit$coefficients / X.n
 
   # Perform post filtering of the coefficients using user supplied function
   fit$coefficients <- post.filter.fn(fit$coefficients)

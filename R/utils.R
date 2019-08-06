@@ -299,11 +299,11 @@ block.fit <- function(y, X, coefs = rep(0, ncol(X)), nonnegative = FALSE,
 # Wrapper function around L0glm.fit to be used with boot for bootstrapping
 # see L0glm.fit documentatio for more details
 L0glm.bfun <- function(data, indices, X, family, lambda, start, wts, nonnegative,
-                       control.l0, control.iwls, control.fit, post.filter.fn){
+                       normalize, control.l0, control.iwls, control.fit, post.filter.fn){
   beta <- L0glm.fit(y = data[indices], X = X[indices,], weights = wts[indices],
                     family = family, lambda = lambda, start = start, nonnegative = nonnegative,
-                    control.l0 = control.l0, control.iwls = control.iwls, control.fit = control.fit,
-                    post.filter.fn = post.filter.fn)$coefficients
+                    normalize = normalize, control.l0 = control.l0, control.iwls = control.iwls,
+                    control.fit = control.fit, post.filter.fn = post.filter.fn)$coefficients
   return(beta)
 }
 

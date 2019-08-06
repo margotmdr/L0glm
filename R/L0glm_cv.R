@@ -7,6 +7,7 @@ L0glm.trainval <- function(X, y,
                            lambdas = 0,
                            no.pen = 0,
                            nonnegative = FALSE,
+                           normalize = TRUE,
                            control.l0 = list(maxit = 100, rel.tol = 1E-4, delta = 1E-5, gamma = 2, warn = FALSE),
                            control.iwls = list(maxit = 100, rel.tol = 1E-4, thresh = 1E-5, warn = FALSE),
                            control.fit = list(maxit = 10, block.size = NULL, tol = 1E-7),
@@ -26,9 +27,9 @@ L0glm.trainval <- function(X, y,
                       X = X[train,], y = y[train], weights = weights[train],
                       x.val = X[-train,,drop=F], y.val = y[-train],
                       w.val = weights[-train], family = family,start = start,
-                      nonnegative = nonnegative, control.l0 = control.l0,
-                      control.iwls = control.iwls, control.fit = control.fit,
-                      post.filter.fn = post.filter.fn)
+                      nonnegative = nonnegative, normalize = normalize,
+                      control.l0 = control.l0, control.iwls = control.iwls,
+                      control.fit = control.fit, post.filter.fn = post.filter.fn)
     if(verbose) print.progress(which(lambda == lambdas), length(lambdas))
     return(fit)
   })
@@ -60,6 +61,7 @@ L0glm.cv <- function(X, y,
                      lambdas = 0,
                      no.pen = 0,
                      nonnegative = FALSE,
+                     normalize = TRUE,
                      control.l0 = list(maxit = 100, rel.tol = 1E-4, delta = 1E-5, gamma = 2, warn = FALSE),
                      control.iwls = list(maxit = 100, rel.tol = 1E-4, thresh = 1E-5, warn = FALSE),
                      control.fit = list(maxit = 10, block.size = NULL, tol = 1E-7),
@@ -80,8 +82,8 @@ L0glm.cv <- function(X, y,
                         X = X[!val.ind,,drop=F], y = y[!val.ind], weights = weights[!val.ind],
                         x.val = X[val.ind,,drop=F], y.val = y[val.ind], w.val = weights[val.ind],
                         family = family, start = start, nonnegative = nonnegative,
-                        control.l0 = control.l0, control.iwls = control.iwls,
-                        control.fit = control.fit, post.filter.fn = post.filter.fn)
+                        normalize = normalize, control.l0 = control.l0,
+                        control.iwls = control.iwls, control.fit = control.fit, post.filter.fn = post.filter.fn)
       return(fit$IC)
     })
     out <- rowMeans(do.call(cbind, fits.fold)) # compute the average criterion over the folds
@@ -115,6 +117,7 @@ L0glm.IC <- function(X, y,
                      lambdas = 0,
                      no.pen = 0,
                      nonnegative = FALSE,
+                     normalize = TRUE,
                      control.l0 = list(maxit = 100, rel.tol = 1E-4, delta = 1E-5, gamma = 2, warn = FALSE),
                      control.fit = list(maxit = 10, block.size = NULL, tol = 1E-7),
                      control.iwls = list(maxit = 100, rel.tol = 1E-4, thresh = 1E-5, warn = FALSE),
@@ -126,9 +129,9 @@ L0glm.IC <- function(X, y,
     fit <- L0glm.qual(lambda = lambda, crit = "all", no.pen = no.pen,
                       X = X, y = y, weights = weights, x.val = X, y.val = y,
                       w.val = weights, family = family, start = start,
-                      nonnegative = nonnegative, control.l0 = control.l0,
-                      control.iwls = control.iwls, control.fit = control.fit,
-                      post.filter.fn = post.filter.fn)
+                      nonnegative = nonnegative, normalize = normalize,
+                      control.l0 = control.l0, control.iwls = control.iwls,
+                      control.fit = control.fit, post.filter.fn = post.filter.fn)
     # TODO delete
     # cat(paste0("Lambda = ", lambda, " | ", tune.crit, " = ", round(fit$IC[tune.crit], 2), "\n"))
     if(verbose) print.progress(which(lambda == lambdas), length(lambdas))
@@ -158,14 +161,15 @@ L0glm.IC <- function(X, y,
 # L0glm.qual ####
 # Functions to optimize optimal lambda
 L0glm.qual <- function(lambda, crit, no.pen,  X, y, weights, x.val, y.val,
-                       w.val, nonnegative, family, start, control.l0,
+                       w.val, family, start, nonnegative, normalize, control.l0,
                        control.iwls, control.fit, post.filter.fn){
   lambda <- rep(lambda, ncol(X))
   lambda[no.pen] <- 0
   fit <- L0glm.fit(X = X, y = y, weights = weights, family = family,
                    lambda = lambda, start = start, nonnegative = nonnegative,
-                   control.l0 = control.l0, control.iwls = control.iwls,
-                   control.fit = control.fit, post.filter.fn = post.filter.fn)
+                   normalize = normalize,  control.l0 = control.l0,
+                   control.iwls = control.iwls, control.fit = control.fit,
+                   post.filter.fn = post.filter.fn)
   val <- vector()
   # Compute effective degrees of freedom
   fit$df <- compute.df(fit = fit, X = X)
