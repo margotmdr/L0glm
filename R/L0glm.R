@@ -2,6 +2,7 @@
 #'
 #' @import nnls
 #' @import Matrix
+#' @import glmnet
 #' @importFrom stats gaussian lm.fit pnorm poisson qnorm quantile rpois runif
 #' @importFrom utils flush.console
 #'
@@ -39,6 +40,10 @@
 #' be penalized.
 #' @param nonnegative
 #' a logical indicating whether nonnegativity constraints should be applied.
+#' @param normalize
+#' should the covariate matrix be normalized with the L2 norm (Euclidean norm)?
+#' It is advised to use normalization unless the covariates were measures on a
+#' similar unit scale.
 #' @param control.l0
 #' list of parameters controling the L0 penalty loop (see details). The list
 #' should contain the following elements:
@@ -90,7 +95,7 @@
 #' filtering.
 #' @param tune.meth
 #' lambda selection method (see details). It should be one of \code{"none"},
-#' \code{"IC"}, \code{"loocv"}, \code{"k-fold"} (where
+#' \code{"IC"}, \code{"trainval"}, \code{"loocv"}, \code{"k-fold"} (where
 #' k should be a numeric indicating the number of folds to use).
 #' @param tune.crit
 #' the criterion based on which to select the optimal lambda. Should be one of
@@ -157,11 +162,8 @@
 #'
 #' \item{\strong{Character}}: In the case that L0 penalty is required (\emph{i.e.}
 #' \code{control.l0$maxit > 1}), lambda can be supplied as the information
-#' criterion to optimize. Possible values are
-#' \code{"aic"} (\eqn{\lambda = 2}),
-#' \code{"bic"} (\eqn{\lambda = ln(n)}),
-#' \code{"hq"} (\eqn{\lambda = 2 ln(ln(n))}), or
-#' \code{"bicq"} (\eqn{\lambda = ln(n) - 2 ln(\frac{q}{1-q})}, where q = 0.25).
+#' criterion to optimize. Possible values are \code{"aic"}, \code{"bic"},
+#' \code{"hq"}, or \code{"bicq"}.
 #' }
 #'
 #' The lambda tuning can be performed using 3 different methods:
@@ -260,6 +262,7 @@ L0glm <- function(formula,
                   contrasts = NULL,
                   lambda = 0, no.pen = 0,
                   nonnegative = FALSE,
+                  normalize = TRUE,
                   control.l0 = list(),
                   control.iwls = list(),
                   control.fit = list(),
@@ -306,6 +309,12 @@ L0glm <- function(formula,
   n <- nrow(X) # nr of obersvations
   p <- ncol(X) # nr of covariates
 
+  # Normalize data
+  if(normalize){
+    X.n <- apply(X, 2, norm, type = "2")
+    X <- sweep(X, 2, X.n, "/")
+  }
+
   if(control.l0$warn && control.l0$delta > control.iwls$thresh){
     control.l0$delta <- control.iwls$thresh
     warning("control.l0$delta > control.iwls$thresh. To avoid artifacts control.l0$delta is decreased to control.iwls$thresh")
@@ -323,21 +332,21 @@ L0glm <- function(formula,
     control.l0$maxit <- 1
     warning("When no penalty is required (ie lambda == 0), there is no need for adaptive ridge iteration. Setting control.l0$maxit = 1.")
   }
+  # Lambda supplied as an IC
+  # In case of L0 penalty, the objective function is closely related to IC's
+  # such as AIC or BIC
   if(is.character(lambda)){
     if(control.l0$maxit == 1) stop("You cannot specify lambda as an information criterion without L0 penalty.")
-    lambda <- switch(lambda,
-                     aic = 2,
-                     bic = log(n),
-                     hq = 2*log(log(n)), # Hannan and Quinnn information criterion,
-                     bicq = log(n) - 2*log(0.25/(1-0.25)), # TODO q = 0.25 should be a constant to optimize...
-                     stop("invalid information criterion for initializing lambda."))
-    tune.meth = "none"
-    tune.crit = NA
+    tune.crit = lambda
+    lambda <- preset.lambda(IC = lambda, y = y, X = X, weights = weights,
+                            family = family, start = start)
+    tune.meth = "preset"
   }
   if(tune.meth == "loocv") { # LOOCV is performed on the full data using the shortcut as described in https://scholarworks.gsu.edu/cgi/viewcontent.cgi?referer=https://scholar.google.com/&httpsredir=1&article=1100&context=math_theses
     tune.meth <- "IC"
     tune.crit <- "loocv"
   }
+
   tune.crit <- match.arg(tune.crit, c("all", "bic", "aic", "loglik", "loocv", "rss", "aicc", "ebic",
                                       "hq", "ric", "mric", "cic",  "bicg", "bicq"))
 
@@ -355,7 +364,7 @@ L0glm <- function(formula,
     lambda <- lambda[lambda < lam.max]
     if(length(lambda) == 0) stop("No valid lambda supplied, try using lower lambda values.")
   }
-  if(tune.meth == "none"){
+  if(tune.meth %in% c("none", "preset")){
     tune.crit <- NA
     if(length(lambda) > 1){
       fits <- lapply(lambda, function(l){
@@ -479,6 +488,9 @@ L0glm <- function(formula,
   # fit$R.squared <- list(R.squared = mss/tss, # = Model SS / Total SS
   #                       type = ifelse(is.null(coefficients.true), "sample", "population"))
 
+  # Reassign norms
+  if(normalize) fit$coefficients <- fit$coefficients / X.n
+
   # Return solution
   fit <- fit[sort(names(fit))]
   return(structure(fit, class = "L0glm"))
@@ -564,7 +576,7 @@ glm.iwls <- function(X, y, weights, family,
                      control.iwls = list(maxit = 1, rel.tol = 1E-4, thresh = 1E-5, warn = FALSE),
                      control.fit = list(maxit = 10, block.size = NULL, tol = 1E-7),
                      converged_set = rep(FALSE, ncol(X))){
-  n <- nrow(X)
+  n <- N <- nrow(X)
   p <- ncol(X)
 
   if (p == 0) { # IN case a NULL model is fit, this chunk is taken from 'glm'
@@ -604,6 +616,7 @@ glm.iwls <- function(X, y, weights, family,
     nobs <- n # needed for evaluating the initialization
     etastart <- mustart <- NULL # needed for evaluating the initialization
     eval(family$initialize) # generates mustart
+    n <- N
     mu <- mustart
     eta <- family$linkfun(mustart)
   }

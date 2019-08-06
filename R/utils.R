@@ -307,6 +307,61 @@ L0glm.bfun <- function(data, indices, X, family, lambda, start, wts, nonnegative
   return(beta)
 }
 
+# preset.lambda ####
+# Function to compute the best lambda given the IC. For some families, the
+# dispersion is estimated using glmnet (+lambda tuning) which is faster than
+# tuning lambda with L0glm.
+preset.lambda <- function(IC, y, X, weights, family, start){
+  N <- n <- nrow(X)
+  # AR is an approximation of L0 penalty so the given lambda and lambda from
+  # the L0 penalty objective do not exactly match (see Frommlet et al, 2016).
+  # We will use the factor 4 the authors derived for orthogonal case, assuming
+  # this approximately holds for any data
+  lambda.hat <- 4 # The estimated true lambda
+  # Lambda is dependent on the dispersion of the model
+  # The issue is that the dispersion is not known beforehand, so we use glmnet
+  # which is very fast to optimize but has no L0 penalty and estimate the
+  # dispersion from the fit
+  if(family$family %in% c("poisson", "binomial")){ # constant dispersion
+    dispersion <- 1
+  } else {
+    # Perform an initial fit of the data
+    if (!is.null(start)){
+      eta <- X %*% start
+      mu <- family$linkinv(eta)
+    } else {
+      # Initial estimate
+      nobs <- n # needed for evaluating the initialization
+      etastart <- mustart <- NULL # needed for evaluating the initialization
+      eval(family$initialize) # generates mustart
+      n <- N
+      mu <- mustart
+      eta <- family$linkfun(mustart)
+    }
+    # Transform data on the link scale
+    if(family$link == "identity"){ # simplified formula and faster than formula in else statement
+      W <- as.vector(weights/family$variance(mu))
+      z <- y
+    } else {
+      mu.prime <- family$mu.eta(eta)
+      z <- as.vector(eta + (y - mu) / mu.prime) # TODO Remove offset here if needed.
+      W <- as.vector(weights * mu.prime^2 / family$variance(mu))
+    }
+    glmnet.cv.out <- cv.glmnet(x = X, y = z, weights = W, lambda = 10^seq(-10, 10, length.out = 100),
+                               family = "gaussian")
+    res <- y - predict(glmnet.cv.out, newx = X, s = glmnet.cv.out$lambda.min)
+    dispersion <- sum(weights * res^2)/n # To avoid overhead of computing rdf or having negative variance, we use just use n instead of n-p
+  }
+  lambda.hat <- lambda.hat * dispersion / 2 # estimated lambda factor. This is additionally scaled to the desired IC
+  lambda <- switch(IC,
+                   aic = 2 * lambda.hat,
+                   bic = log(n) * lambda.hat,
+                   hq = 2*log(log(n)) * lambda.hat, # Hannan and Quinnn information criterion,
+                   bicq = log(n) - 2*log(0.25/(1-0.25)) * lambda.hat, # TODO q = 0.25 should be a constant to optimize...
+                   stop("invalid information criterion for initializing lambda. It must be one of 'aic', 'bic', 'hq', 'bicq'."))
+  return(lambda)
+}
+
 
 ##########################
 #### UTILITY FUNCTION ####

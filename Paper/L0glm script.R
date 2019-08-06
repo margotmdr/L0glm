@@ -26,13 +26,13 @@ y <- sim$y
 
 # Set up the parameters for controlling the algorithm
 ctrl.fit <- control.fit.gen() # default
-ctrl.iwls <- control.iwls.gen(maxit = 1)
+ctrl.iwls <- control.iwls.gen() # default
 ctrl.l0 <- control.l0.gen() # default
 
 # Fit a GLM with Poisson error structure and identity link, with nonnegativity
 # constraints on the coefficients, and L0 penalty
 L0glm.out <- L0glm(formula = y ~ 0 + ., data = data.frame(y = y, x),
-                   family = poisson(identity),
+                   family = poisson(identity), normalize = FALSE,
                    lambda = 1, tune.meth = "none", nonnegative = TRUE,
                    control.iwls = ctrl.iwls, control.l0 = ctrl.l0,
                    control.fit = ctrl.fit)
@@ -45,7 +45,7 @@ L0glm.infer.out <- L0glm.inference(L0glm.out, level = 0.95, boot.repl = 1000,
 
 # Plot the results
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm.out, a.true = sim$a,
-                     inference = L0glm.infer.out,
+                     # inference = L0glm.infer.out,
                      main = "Ground truth vs L0 penalized L0glm estimates")
 
 

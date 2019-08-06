@@ -9,7 +9,7 @@
 control.l0.gen(maxit = 100, rel.tol = 1e-04, delta = 1e-05,
   gamma = 2, warn = FALSE)
 
-control.iwls.gen(maxit = 100, rel.tol = 1e-04, thresh = 1e-05,
+control.iwls.gen(maxit = 1, rel.tol = 1e-04, thresh = 1e-05,
   warn = FALSE)
 
 control.fit.gen(maxit = 10, block.size = NULL, tol = 1e-07)
