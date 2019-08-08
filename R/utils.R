@@ -168,7 +168,7 @@ compute.ic <- function(y, y.hat, w, fit){
     q <- 0.25 # TODO Defautl add as argument
     bicq <-  min2LL + log(n)*k - 2*k*log(q/(1-q))
   }
-  return(c(loglik = -1/2 * min2LL, rss = rss, aic = aic, aicc = aicc, bic = bic, ebic = ebic,
+  return(c(k = k, loglik = -1/2 * min2LL, rss = rss, aic = aic, aicc = aicc, bic = bic, ebic = ebic,
            hq = hq, ric = ric, mric = mric, cic = cic, bicg = bicg, bicq = bicq))
 }
 

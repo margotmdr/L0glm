@@ -211,9 +211,9 @@
 #' \item{\code{family}}{The error structure used to fit the data.}
 #' \item{\code{fitted.values}}{a vector with the fitted response.}
 #' \item{\code{IC}}{a vector with IC values and other goodness of fit criteria.
-#' Currently implemented are: \code{loglik}, \code{rss}, \code{aic}, \code{aicc},
-#' \code{bic}, \code{ebic}, \code{hq}, \code{ric}, \code{mric}, \code{cic},
-#' \code{bicg}, \code{bicq}.}
+#' Currently implemented are: \code{k} (the number of non zero coefficients),
+#' \code{loglik}, \code{rss}, \code{aic}, \code{aicc}, \code{bic}, \code{ebic},
+#' \code{hq}, \code{ric}, \code{mric}, \code{cic}, \code{bicg}, \code{bicq}.}
 #' \item{\code{iter.iwls}}{A vector of length \code{iter.l0} containing the
 #' number of iterations performed for every IWLS fit.}
 #' \item{\code{iter.l0}}{The number of adaptive ridge iterations.}
@@ -508,7 +508,7 @@ L0glm.fit <- function(X, y,
                       lambda = 0,
                       start = NULL,
                       nonnegative = FALSE,
-                      normalize, # TODO add after testing:  = TRUE,
+                      normalize = TRUE, # TODO add after testing:  = TRUE,
                       post.filter.fn = function(u) return(u),
                       control.l0 = list(maxit = 100, rel.tol = 1E-4, delta = 1E-5, gamma = 2, warn = FALSE),
                       control.iwls = list(maxit = 1, rel.tol = 1E-4, thresh = 1E-5, warn = FALSE),
