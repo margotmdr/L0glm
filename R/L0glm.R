@@ -347,7 +347,7 @@ L0glm <- function(formula,
     tune.crit <- "loocv"
   }
 
-  tune.crit <- match.arg(tune.crit, c("all", "bic", "aic", "loglik", "loocv", "rss", "aicc", "ebic",
+  tune.crit <- match.arg(tune.crit, c("all", "bic", "aic", "loglik", "loocv", "rss", "mse", "aicc", "ebic",
                                       "hq", "ric", "mric", "cic",  "bicg", "bicq"))
 
   if(verbose) cat(paste0("\n==== Lambda tuning ====\n\n",

@@ -58,7 +58,7 @@ plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm6, a.true = sim$a,
 #           optimized lambda using 3-fold CV
 L0glm7 <- L0glm(formula = "y ~ 0 + .", data = data.frame(X, y = y), family = poisson(identity),
                 lambda = 10^seq(-3,3, length.out = 51), # Use arbitrary sequence
-                tune.crit = "bic", tune.meth = "3-fold", nonnegative = TRUE, normalize = FALSE)
+                tune.crit = "mse", tune.meth = "3-fold", nonnegative = TRUE, normalize = FALSE)
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm7, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates (3-fold CV)")
 
