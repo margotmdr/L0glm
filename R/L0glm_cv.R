@@ -185,7 +185,7 @@ L0glm.qual <- function(lambda, crit, no.pen,  X, y, weights, x.val, y.val,
     H.diag <- compute.diagH(fit = fit, X = x.val, w = w)
     val["loocv"] <- 1/length(y.val) * sum(w * (z.res/(1 - H.diag))^2) # see p.7 in https://scholarworks.gsu.edu/cgi/viewcontent.cgi?referer=https://scholar.google.com/&httpsredir=1&article=1100&context=math_theses
   }
-  if(crit %in% c("all", "rss", "bic", "aic", "loglik", "aicc", "ebic", "hq",
+  if(crit %in% c("all", "mse", "rss", "bic", "aic", "loglik", "aicc", "ebic", "hq",
                  "ric", "mric", "cic",  "bicg", "bicq")){ # TODO check all IC are present
     val <- c(val, compute.ic(y = y.val, y.hat = y.hat, w = w.val, fit = fit))
     if(crit != "all") val <- val[crit]

@@ -144,6 +144,9 @@ compute.ic <- function(y, y.hat, w, fit){
     # Residual sums of square
     rss <- compute.ss(mu = y.hat, y = y, w = w, fam = fam)
 
+    # Mean squared error
+    mse <- sum((y - mu)^2)/length(y)
+
     # TODO implement R2, adj R2, D2 here
 
     # Get -2 * log-likelihood
@@ -168,7 +171,7 @@ compute.ic <- function(y, y.hat, w, fit){
     q <- 0.25 # TODO Defautl add as argument
     bicq <-  min2LL + log(n)*k - 2*k*log(q/(1-q))
   }
-  return(c(k = k, loglik = -1/2 * min2LL, rss = rss, aic = aic, aicc = aicc, bic = bic, ebic = ebic,
+  return(c(k = k, loglik = -1/2 * min2LL, rss = rss, mse = mse, aic = aic, aicc = aicc, bic = bic, ebic = ebic,
            hq = hq, ric = ric, mric = mric, cic = cic, bicg = bicg, bicq = bicq))
 }
 
