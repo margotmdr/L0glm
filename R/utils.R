@@ -145,7 +145,7 @@ compute.ic <- function(y, y.hat, w, fit){
     rss <- compute.ss(mu = y.hat, y = y, w = w, fam = fam)
 
     # Mean squared error
-    mse <- sum((y - mu)^2)/length(y)
+    mse <- sum((y - y.hat)^2)/length(y)
 
     # TODO implement R2, adj R2, D2 here
 
