@@ -129,7 +129,8 @@ compute.diagH <- function(X, w, fit){
 compute.ic <- function(y, y.hat, w, fit){
   fam <- fit$family
   if(sum(fit$coefficients != 0) == 0){
-    rss <- min2LL <- aic <- bic <- aicc <- ebic <- hq <- ric <- mric <- cic <- bicg <- bicq <- Inf # TODO update
+    k <- 0
+    rss <- mse <- min2LL <- aic <- bic <- aicc <- ebic <- hq <- ric <- mric <- cic <- bicg <- bicq <- Inf
     loglik <- -Inf
   } else {
     if(fam$family == "quasipoisson") fam <- poisson(identity) # Fix to let loglik be calculated for quasi families as for regular families

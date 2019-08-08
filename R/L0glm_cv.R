@@ -135,8 +135,6 @@ L0glm.IC <- function(X, y,
                       nonnegative = nonnegative, normalize = normalize,
                       control.l0 = control.l0, control.iwls = control.iwls,
                       control.fit = control.fit, post.filter.fn = post.filter.fn)
-    # TODO delete
-    # cat(paste0("Lambda = ", lambda, " | ", tune.crit, " = ", round(fit$IC[tune.crit], 2), "\n"))
     if(verbose) print.progress(which(lambda == lambdas), length(lambdas))
     return(fit)
   })
@@ -188,16 +186,11 @@ L0glm.qual <- function(lambda, crit, no.pen,  X, y, weights, x.val, y.val,
     val["loocv"] <- 1/length(y.val) * sum(w * (z.res/(1 - H.diag))^2) # see p.7 in https://scholarworks.gsu.edu/cgi/viewcontent.cgi?referer=https://scholar.google.com/&httpsredir=1&article=1100&context=math_theses
   }
   if(crit %in% c("all", "mse", "rss", "bic", "aic", "loglik", "aicc", "ebic", "hq",
-                 "ric", "mric", "cic",  "bicg", "bicq")){ # TODO check all IC are present
+                 "ric", "mric", "cic",  "bicg", "bicq")){
     val <- c(val, compute.ic(y = y.val, y.hat = y.hat, w = w.val, fit = fit))
     if(crit != "all") val <- val[crit]
   }
   if(length(val) == 0) stop("Invalid IC supplied.")
-
-  # TODO delete
-  # plot(x = 1:length(y), y = y, main = paste0("Lambda = ", lambda))
-  # lines(x = seq(1, length(y), length.out = length(fit$coefficients)), y = fit$coefficients, col = 2, type = "h")
-  # lines(x = 1:length(y), y = fit$fitted.values)
 
   # Return the value to minimize
   return(list(IC = val, coefficients.lam = fit$coefficients, lambda = lambda))
