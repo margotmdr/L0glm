@@ -45,12 +45,6 @@ L0glm.trainval <- function(X, y,
     best <- which.min(res$IC[,tune.crit])
   }
   res$best.lam <- lambdas[best]
-
-  # TODO delete
-  # plot(x = res$lambdas, y = res$IC[,tune.crit], log = "xy", type = "l")
-  # abline(v = res$best.lam)
-  # stop("ierjgruioeghe")
-
   return(res)
 }
 
@@ -76,7 +70,7 @@ L0glm.cv <- function(X, y,
   # Subset the train and validation set
   if(!is.null(seed)) set.seed(seed)
   foldid <- sample(rep(1:k, length = n))
-  fits <- t(sapply(lambdas, function(lambda){
+  fits <- lapply(lambdas, function(lambda){
     fits.fold <- lapply(1:k, function(fold){
       val.ind <- foldid == fold
       fit <- L0glm.qual(lambda = lambda, crit = "all", no.pen = no.pen,
@@ -85,19 +79,27 @@ L0glm.cv <- function(X, y,
                         family = family, start = start, nonnegative = nonnegative,
                         normalize = normalize, control.l0 = control.l0,
                         control.iwls = control.iwls, control.fit = control.fit, post.filter.fn = post.filter.fn)
-      return(fit$IC)
+      # return(fit$IC)
+      return(fit)
     })
-    out <- rowMeans(do.call(cbind, fits.fold)) # compute the average criterion over the folds
-    # TODO delete
-    # cat(paste0("Lambda = ", lambda, " | ", tune.crit, " = ", round(out[tune.crit], 2), "\n"))
+    # out <- rowMeans(do.call(cbind, fits.fold)) # compute the average criterion over the folds
+    ICs <- sapply(fits.fold, "[[", "IC")
+    IC.mean <- rowMeans(ICs)
+    IC.sd <- apply(ICs, 1, sd)
+    coefs <- sapply(fits.fold, "[[", "coefficients.lam")
+    coefs.mean <- rowMeans(coefs)
+    coefs.sd <- apply(coefs, 1, sd)
     if(verbose) print.progress(which(lambdas == lambda), length(lambdas))
-    return(out)
-  }))
+    return(list(IC.mean = IC.mean, IC.sd = IC.sd,
+                coefs.mean = coefs.mean, coefs.sd = coefs.sd))
+  })
   res <- list()
   res$lambdas <- lambdas
-  res$IC <- fits
-  res$coefficients.lam <- NA
-  rownames(res$IC) <- res$lambdas
+  res$IC <- t(sapply(fits, "[[", "IC.mean"))
+  res$IC.sd <- t(sapply(fits, "[[", "IC.sd"))
+  res$coefficients.lam <- t(sapply(fits, "[[", "coefs.mean"))
+  res$coefficients.lam.sd <- t(sapply(fits, "[[", "coefs.sd"))
+  rownames(res$IC) <- rownames(res$IC.sd) <- rownames(res$coefficients.lam) <- rownames(res$coefficients.lam.sd) <- res$lambdas
   if(tune.crit %in% c("loglik", "R2", "adjR2")){
     best <- which.max(res$IC[,tune.crit])
   } else {
