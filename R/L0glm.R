@@ -100,8 +100,9 @@
 #' @param tune.crit
 #' the criterion based on which to select the optimal lambda. Should be one of
 #' \code{"all"}, \code{"bic"}, \code{"aic"}, \code{"loglik"}, \code{"loocv"},
-#' \code{"rss"}, \code{"aicc"}, \code{"ebic"}, \code{"hq"}, \code{"ric"},
-#' \code{"mric"}, \code{"cic"}, \code{"bicg"}, \code{"bicq"})
+#' \code{"rss"}, \code{"mse"}, \code{"class"} (for logistic regression), \code{"aicc"},
+#' \code{"ebic"}, \code{"hq"}, \code{"ric"}, \code{"mric"}, \code{"cic"},
+#' \code{"bicg"}, \code{"bicq"})
 #' @param train.vs.val
 #' a value between \code{1/n} and \code{1-1/n} which indicates the proportion
 #' of observations that will be allocated to the training set. This is used only
@@ -347,7 +348,7 @@ L0glm <- function(formula,
     tune.crit <- "loocv"
   }
 
-  tune.crit <- match.arg(tune.crit, c("all", "bic", "aic", "loglik", "loocv", "rss", "mse", "aicc", "ebic",
+  tune.crit <- match.arg(tune.crit, c("all", "bic", "aic", "loglik", "loocv", "rss", "mse", "class", "aicc", "ebic",
                                       "hq", "ric", "mric", "cic",  "bicg", "bicq"))
 
   if(verbose) cat(paste0("\n==== Lambda tuning ====\n\n",
@@ -381,6 +382,7 @@ L0glm <- function(formula,
       colnames(fit$coefficients) <- colnames(fit$fitted.values) <- lambda
       fit$family <- family
       fit$prior.weights <- weights
+      print.progress(which(lambda == l), length(lambda))
       return(structure(fit, class = "tune.L0glm"))
     }
   } else if (tune.meth %in%c("trainval", "IC", "loocv") || grepl(pattern = "^\\d+-fold$", tune.meth)) {
@@ -436,9 +438,11 @@ L0glm <- function(formula,
 
   nonzero <- fit$coefficients != 0
   fit$call <- call0
+  fit$terms <- mt
   fit$constraint <- ifelse(nonnegative, "nonnegative", "none")
   fit$prior.coefficients <- start
   fit$lambda.tune <- lambda.tune
+
 
   # Compute residuals
   fit$residuals <- y - fit$fitted.values
@@ -671,18 +675,6 @@ glm.iwls <- function(X, y, weights, family,
                                       block.id = block.ids[!converged_set],
                                       nonnegative = nonnegative,
                                       control = control.fit)
-    # TODO clean this
-    # if(F){
-    #   if(nonnegative){
-    #     beta[!converged_set] <- nnls(A = Xaug[good,!converged_set,drop=F]*sqrt(W[good]),
-    #                                  b = zaug[good]*sqrt(W[good]))$x
-    #   } else {
-    #     beta[!converged_set] <- lm.fit(x = as.matrix(Xaug[good,!converged_set,drop=F]*sqrt(W[good])),
-    #                                    y = zaug[good]*sqrt(W[good]),
-    #                                    tol = 1E-07)$coefficients
-    #     beta[is.na(beta) | is.infinite(beta)] <- 0
-    #   }
-    # }
 
     beta[abs(beta) < control.iwls$thresh] <- 0
     nonzero <- beta != 0
@@ -725,7 +717,7 @@ glm.iwls <- function(X, y, weights, family,
 # - allow for an offset ?
 # - allow for some covariates to be constrained to nonnegativity, use QP for this
 # - make super function to perform nn.reg, nn.ridge, nn.adaptive.ridge
-# - Explore standardization of y and X and inlfuence on lambda selection vs theoretical lambda
+# - fix bugs when NAs are supplied !!!!!!
 
 
 #' Set parameters for L0glm algorithm

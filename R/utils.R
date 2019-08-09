@@ -435,8 +435,7 @@ plot_L0glm_benchmark <- function(x, y, fit, inference = NULL, a.true, ...){
   } else {
     legend("topleft", lty = c(1,1,0,0), col = c("grey40", "orange2", "red", "blue"),
            pch = c("", "", "|", "|"),
-           legend = c("Input signal", "Fitted signal", "Ground truth",
-                      "L0glm estimates (Wald p >= 0.05)", "L0glm estimates (Wald p < 0.05)"))
+           legend = c("Input signal", "Fitted signal", "Ground truth", "L0glm estimates"))
   }
 }
 

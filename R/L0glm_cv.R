@@ -179,6 +179,11 @@ L0glm.qual <- function(lambda, crit, no.pen,  X, y, weights, x.val, y.val,
   y.hat <- family$linkinv(eta.hat)
 
   # Compute the selection criteria
+  if(crit %in% c("all", "class")){
+    pred <- as.integer(y.hat >= 0.5)
+    class.perf <- 1 - mean(abs(pred - y.val))
+    val["class"] <- class.perf
+  }
   if(crit %in% c("all", "loocv")){
     z.res <- (y.val - y.hat)/family$mu.eta(eta.hat) # the residuals on the adjusted scale = z.res = z - z.fit = eta + (y - mu)/g'(eta) - eta = (y - mu)/g'(eta)
     w <- w.val * as.vector(family$mu.eta(eta.hat)^2 / family$variance(y.hat)) # IWLS weights from last iteration
