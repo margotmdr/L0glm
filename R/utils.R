@@ -525,13 +525,6 @@ simulate_spike_train <- function(n = 100, p = n, k = 10,
                                            exp(((x-u)^2)/(-2*(w^2))),
                                          seed = 123, Plot = TRUE
                                          ){
-
-  n = 100
-  p = 200
-  k = 10
-  mean_beta = 100
-  sd_logbeta = 1
-
   set.seed(seed)
   family = match.arg(family)
   x = 1:n
