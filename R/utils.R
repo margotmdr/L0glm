@@ -497,7 +497,6 @@ print.progress <- function(current, total, before = "Progress: ", after = "", ..
 #' @param Plot should the generated data be plotted?
 #'
 #' @return
-#'
 #' The function returns a list with the following elements:
 
 #' \item{X}{: a \code{n} by \code{p} covariate matrix. The matrix is a banded
@@ -545,8 +544,7 @@ simulate_spike_train <- function(n = 100, p = n, k = 10,
     par(mfrow = c(1, 1))
     plot(x, y, type = "l",
       main = paste0(
-        "Simulated blurred superimposed spike train\n(red=true coefficients,
-        black=observed signal) with ",
+        "Simulated blurred superimposed spike train\n(red=true coefficients, black=observed signal) with ",
         family, " noise"))
     points(x, y, pch = 16, cex = 0.5)
     lines(x_beta, beta_true, type = "h", col = "red")

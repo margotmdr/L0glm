@@ -16,7 +16,7 @@ L0glm(formula, data = NULL, weights = rep(1, length(y)),
 
 L0glm.fit(X, y, weights = rep(1, length(y)),
   family = poisson(identity), lambda = 0, start = NULL,
-  nonnegative = FALSE, normalize, post.filter.fn = function(u)
+  nonnegative = FALSE, normalize = TRUE, post.filter.fn = function(u)
   return(u), control.l0 = list(maxit = 100, rel.tol = 1e-04, delta =
   1e-05, gamma = 2, warn = FALSE), control.iwls = list(maxit = 1, rel.tol
   = 1e-04, thresh = 1e-05, warn = FALSE), control.fit = list(maxit = 10,
@@ -115,8 +115,9 @@ k should be a numeric indicating the number of folds to use).}
 
 \item{tune.crit}{the criterion based on which to select the optimal lambda. Should be one of
 \code{"all"}, \code{"bic"}, \code{"aic"}, \code{"loglik"}, \code{"loocv"},
-\code{"rss"}, \code{"aicc"}, \code{"ebic"}, \code{"hq"}, \code{"ric"},
-\code{"mric"}, \code{"cic"}, \code{"bicg"}, \code{"bicq"})}
+\code{"rss"}, \code{"mse"}, \code{"class"} (for logistic regression), \code{"aicc"},
+\code{"ebic"}, \code{"hq"}, \code{"ric"}, \code{"mric"}, \code{"cic"},
+\code{"bicg"}, \code{"bicq"})}
 
 \item{train.vs.val}{a value between \code{1/n} and \code{1-1/n} which indicates the proportion
 of observations that will be allocated to the training set. This is used only
@@ -149,9 +150,9 @@ and \code{rdf} residual degree of freedom of the fitted model.}
 \item{\code{family}}{The error structure used to fit the data.}
 \item{\code{fitted.values}}{a vector with the fitted response.}
 \item{\code{IC}}{a vector with IC values and other goodness of fit criteria.
-Currently implemented are: \code{loglik}, \code{rss}, \code{aic}, \code{aicc},
-\code{bic}, \code{ebic}, \code{hq}, \code{ric}, \code{mric}, \code{cic},
-\code{bicg}, \code{bicq}.}
+Currently implemented are: \code{k} (the number of non zero coefficients),
+\code{loglik}, \code{rss}, \code{aic}, \code{aicc}, \code{bic}, \code{ebic},
+\code{hq}, \code{ric}, \code{mric}, \code{cic}, \code{bicg}, \code{bicq}.}
 \item{\code{iter.iwls}}{A vector of length \code{iter.l0} containing the
 number of iterations performed for every IWLS fit.}
 \item{\code{iter.l0}}{The number of adaptive ridge iterations.}
@@ -330,7 +331,7 @@ plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm6, a.true = sim$a,
 #           optimized lambda using 3-fold CV
 L0glm7 <- L0glm(formula = "y ~ 0 + .", data = data.frame(X, y = y), family = poisson(identity),
                 lambda = 10^seq(-3,3, length.out = 51), # Use arbitrary sequence
-                tune.crit = "bic", tune.meth = "3-fold", nonnegative = TRUE, normalize = FALSE)
+                tune.crit = "mse", tune.meth = "3-fold", nonnegative = TRUE, normalize = FALSE)
 plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm7, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates (3-fold CV)")
 
