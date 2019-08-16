@@ -402,38 +402,37 @@ preset.lambda <- function(IC, y, X, weights, family, start){
 #' coefficients in a way that gives an intuitive view on the quality of the fit.
 #'
 #' @export
-plot_L0glm_benchmark <- function(x, y, fit, inference = NULL, a.true, ...){
-  a.fit <- fit$coefficients
-  if(!is.null(names(a.fit))){
-    int.ind <- grepl("Intercept", names(a.fit))
+plot_benchmark <- function(x, y, fit, inference = NULL, beta_true, legend = FALSE, ...){
+  beta_fit <- fit$coefficients
+  if(!is.null(names(beta_fit))){
+    int.ind <- grepl("Intercept", names(beta_fit))
     inference$CI.lower <- inference$CI.lower[!int.ind]
     inference$CI.upper <- inference$CI.upper[!int.ind]
     inference$p.value <- inference$p.value[!int.ind]
-    a.fit <- a.fit[!int.ind]
+    beta_fit <- beta_fit[!int.ind]
   }
-  # transf <- function(x) sqrt(x) # transform data for better rendering
-  transf <- function(x) return(x)
-  plot(x, transf(y), type="l", ylab="Signal", xlab="Time", col = "grey40",
-       ylim=c(-transf(max(y)), transf(max(y))), ...)
-  lines(x,-transf(y), col = "grey40")
-  lines(transf(a.true), type = "h", col = "red", lwd = 2)
-  lines(x, -transf(a.fit), type="h", col="blue", lwd = 2)
-  lines(x, -transf(fit$fitted.values), col="orange2", lwd = 1)
+  plot(x, y, type="l", ylab="Signal", xlab="Time", col = "grey40",
+       ylim=c(-max(y), max(y)), ...)
+  lines(x,-y, col = "grey40")
+  x_beta = seq(min(x), max(x), length.out=length(beta_fit))
+  lines(x_beta, beta_true, type = "h", col = "red", lwd = 2)
+  lines(x_beta, -beta_fit, type="h", col="blue", lwd = 2)
+  lines(x, -fit$fitted.values, col="orange2", lwd = 1)
   if(!is.null(inference)){
     # Change color of significant covariates
     sign <- inference$p.value < 0.05
-    lines(x[sign], -transf(a.fit[sign]), type="h", col="green4", lwd=2)
+    lines(x_beta[sign], -beta_fit[sign], type="h", col="green4", lwd=2)
     # Draw CIs
-    segments(x0 = x, x1 = x, y0 = -transf(inference$CI.lower), y1 = -transf(inference$CI.upper), col = "grey40")
-    segments(x0 = x-0.35, x1 = x+0.35, y0 = -transf(inference$CI.lower), y1 = -transf(inference$CI.lower), col = "grey40")
-    segments(x0 = x-0.35, x1 = x+0.35, y0 = -transf(inference$CI.upper), y1 = -transf(inference$CI.upper), col = "grey40")
+    segments(x0 = x_beta, x1 = x_beta, y0 = -inference$CI.lower, y1 = -inference$CI.upper, col = "grey40")
+    segments(x0 = x_beta-0.35, x1 = x_beta+0.35, y0 = -inference$CI.lower, y1 = -inference$CI.lower, col = "grey40")
+    segments(x0 = x_beta-0.35, x1 = x_beta+0.35, y0 = -inference$CI.upper, y1 = -inference$CI.upper, col = "grey40")
     # Legend
-    legend("topleft", lty = c(1,1,0,0,0), col = c("grey40", "orange2", "red", "blue", "green2"),
+    if (legend) legend("topleft", lty = c(1,1,0,0,0), col = c("grey40", "orange2", "red", "blue", "green2"),
            pch = c("", "", "|", "|", "|"),
            legend = c("Input signal", "Fitted signal", "Ground truth",
                       "Non significant estimates (p-value >= 0.05)", "Significant estimates (p-value < 0.05)"))
   } else {
-    legend("topleft", lty = c(1,1,0,0), col = c("grey40", "orange2", "red", "blue"),
+    if (legend) legend("topleft", lty = c(1,1,0,0), col = c("grey40", "orange2", "red", "blue"),
            pch = c("", "", "|", "|"),
            legend = c("Input signal", "Fitted signal", "Ground truth", "L0glm estimates"))
   }
@@ -457,7 +456,7 @@ print.progress <- function(current, total, before = "Progress: ", after = "", ..
 #'
 #' This function generates synthetic data consisting of a time series made of a
 #' spike train convoluted by a Gaussian blur kernel ("point spread function")
-#' with Poisson or Gaussian noise on the observed signal. Data of this form are
+#' with Poisson or Gaussian noise added. Data of this form are
 #' commonly encountered in the context of various signal deconvolution problems,
 #' where one would like to deconvolute an observed blurry and noisy signal with
 #' a known blur kernel (psf) assuming a given noise model. For example, in Gas
@@ -494,7 +493,7 @@ print.progress <- function(current, total, before = "Progress: ", after = "", ..
 #'   \code{function(x, u, w=2.5) exp(((x-u)^2)/(-2*(w^2)))}.
 #' @param seed The seed used to sample the nonzero coefficients and to generate
 #'   the noisy response signal.
-#' @param Plot should the generated data be plotted?
+#' @param Plot Should the generated data be plotted?
 #'
 #' @return
 #' The function returns a list with the following elements:
@@ -545,7 +544,8 @@ simulate_spike_train <- function(n = 100, p = n, k = 10,
     plot(x, y, type = "l",
       main = paste0(
         "Simulated blurred superimposed spike train\n(red=true coefficients, black=observed signal) with ",
-        family, " noise"))
+        family, " noise"),
+      xlab = "Time", ylab = "Signal")
     points(x, y, pch = 16, cex = 0.5)
     lines(x_beta, beta_true, type = "h", col = "red")
   }
