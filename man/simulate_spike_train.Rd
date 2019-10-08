@@ -19,7 +19,7 @@ distributed on logarithmic scale within this range}
 \item{seed}{the seed used to sample the non zero coefficients and to generate the
 response signal.}
 
-\item{Plot}{should the generated data be plotted?}
+\item{Plot}{Should the generated data be plotted?}
 }
 \value{
 The function return a list with the following elements:
@@ -32,6 +32,7 @@ zero (true) coefficients.}
 This is the spike train used to generate the data.}
 }
 \description{
+<<<<<<< Updated upstream
 The function generates synthetic data consisting of a time series made of
 Gaussian shaped spike trains, as could be observed in Gas chromatography/Mass
 spectrometry data. The objective is to recover the spike train used to
@@ -39,6 +40,22 @@ generate the data by fitting a banded matrix of shifted Gaussian shapes to
 the signal. A subset of this matrix is sampled and used to generate the
 response signal. The signal contains Poisson noise, and hence is nonnegative
 with integer counts.
+=======
+This function generates synthetic data consisting of a time series made of a
+spike train convoluted by a Gaussian blur kernel ("point spread function")
+with Poisson or Gaussian noise added. Data of this form are
+commonly encountered in the context of various signal deconvolution problems,
+where one would like to deconvolute an observed blurry and noisy signal with
+a known blur kernel (psf) assuming a given noise model. For example, in Gas
+chromatography/Mass spectrometry one would be interested in deconvoluting a
+chromatogram, which is a noisy version of an unknown number of superimposed
+blurred peaks, by a given measured peak shape function / blur kernel.
+The objective is to recover the underlying spike train
+(chromatogram peaks in the GC/MS example) used to generate the data by
+regressing the observed noisy signal onto a banded matrix consisting of
+shifted copies of the Gaussian kernel used to blur the true signal. The
+simulated error can be specified to be either Poisson or Gaussian.
+>>>>>>> Stashed changes
 
 The function is used as a test case in the \code{\link{L0glm}} examples.
 }

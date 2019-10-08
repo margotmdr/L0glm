@@ -407,6 +407,7 @@ plot_L0glm_benchmark <- function(x, y, fit, inference = NULL, a.true, ...){
     inference$p.value <- inference$p.value[!int.ind]
     a.fit <- a.fit[!int.ind]
   }
+<<<<<<< Updated upstream
   # transf <- function(x) sqrt(x) # transform data for better rendering
   transf <- function(x) return(x)
   plot(x, transf(y), type="l", ylab="Signal", xlab="Time", col = "grey40",
@@ -415,6 +416,15 @@ plot_L0glm_benchmark <- function(x, y, fit, inference = NULL, a.true, ...){
   lines(transf(a.true), type = "h", col = "red", lwd = 2)
   lines(x, -transf(a.fit), type="h", col="blue", lwd = 2)
   lines(x, -transf(fit$fitted.values), col="orange2", lwd = 1)
+=======
+  plot(x, y, type="l", ylab="Signal", xlab="Time", col = "grey40",
+       ylim=c(-max(y), max(y)), ...)
+  lines(x,-y, col = "grey40")
+  x_beta = seq(min(x), max(x), length.out=length(beta_fit))
+  lines(x_beta, beta_true, type = "h", col = "red", lwd = 2)
+  lines(x_beta, -beta_fit, type="h", col="blue", lwd = 2)
+  lines(x, -fit$fitted.values, col="blue", lwd = 1)
+>>>>>>> Stashed changes
   if(!is.null(inference)){
     # Change color of significant covariates
     sign <- inference$p.value < 0.05
@@ -424,12 +434,20 @@ plot_L0glm_benchmark <- function(x, y, fit, inference = NULL, a.true, ...){
     segments(x0 = x-0.35, x1 = x+0.35, y0 = -transf(inference$CI.lower), y1 = -transf(inference$CI.lower), col = "grey40")
     segments(x0 = x-0.35, x1 = x+0.35, y0 = -transf(inference$CI.upper), y1 = -transf(inference$CI.upper), col = "grey40")
     # Legend
+<<<<<<< Updated upstream
     legend("topleft", lty = c(1,1,0,0,0), col = c("grey40", "orange2", "red", "blue", "green2"),
+=======
+    if (legend) legend("topleft", lty = c(1,1,0,0,0), col = c("grey40", "blue", "red", "blue", "green4"),
+>>>>>>> Stashed changes
            pch = c("", "", "|", "|", "|"),
            legend = c("Input signal", "Fitted signal", "Ground truth",
                       "Non significant estimates (p-value >= 0.05)", "Significant estimates (p-value < 0.05)"))
   } else {
+<<<<<<< Updated upstream
     legend("topleft", lty = c(1,1,0,0), col = c("grey40", "orange2", "red", "blue"),
+=======
+    if (legend) legend("topleft", lty = c(1,1,0,0), col = c("grey40", "blue", "red", "blue"),
+>>>>>>> Stashed changes
            pch = c("", "", "|", "|"),
            legend = c("Input signal", "Fitted signal", "Ground truth",
                       "L0glm estimates (Wald p >= 0.05)", "L0glm estimates (Wald p < 0.05)"))
@@ -477,6 +495,7 @@ print.progress <- function(current, total, before = "Progress: ", after = "", ..
 #' should the generated data be plotted?
 #'
 #' @return
+<<<<<<< Updated upstream
 #'
 #' The function return a list with the following elements:
 #' \item{x}{: a vector of length \code{n} containing time labels.}
@@ -486,6 +505,24 @@ print.progress <- function(current, total, before = "Progress: ", after = "", ..
 #' zero (true) coefficients.}
 #' \item{a}{: a vector of lenght \code{p = n} containing the true coefficients.
 #' This is the spike train used to generate the data.}
+=======
+#' The function returns a list with the following elements:
+#' \item{X}{: a \code{n} by \code{p} covariate matrix. The matrix is a banded
+#' matrix with shifted versions of the specified point spread function for
+#' which a subset (where \code{beta_true>0}) has associated non-zero
+#' (true) coefficients.}
+#' \item{beta_true}{: a vector of length \code{p} containing the true
+#' coefficients.
+#' This is the spike train used to generate the data, so that
+#' \code{y = beta_true %*% X + e}.}
+#' \item{y}{: a vector of length \code{n} containing the noisy response signal
+#' given by \code{y = beta_true %*% X + e}.}
+#' \item{y_true}{: a vector of length \code{n} containing the response signal
+#' given by \code{y_true = beta_true %*% X}.}
+#' \item{x}{: a vector of length \code{n} containing the time points.}
+#' \item{x_beta}{: a vector of length \code{p} containing the locations of the
+#' simulated spikes. Equal to \code{x} when \code{p=n}.}
+>>>>>>> Stashed changes
 #'
 #' @export
 simulate_spike_train <- function(n = 200, npeaks = 20, peakhrange = c(10,1E3),
@@ -519,7 +556,29 @@ simulate_spike_train <- function(n = 200, npeaks = 20, peakhrange = c(10,1E3),
     lines(a, type = "h", col = "red")
   }
 
+<<<<<<< Updated upstream
   return(list(x = x, y = y, X = X, a = a))
+=======
+  if (Plot) {
+    par(mfrow = c(1, 1))
+    plot(x, y, type = "l",
+      main = paste0(
+        "Simulated blurred superimposed spike train\n(red=true coefficients, black=observed signal) with ",
+        family, " noise"),
+      xlab = "Time", ylab = "Signal")
+    # points(x, y, pch = 16, cex = 0.5)
+    lines(x_beta[beta_true!=0], beta_true[beta_true!=0], type = "h", col = "red")
+  }
+
+  return(list(
+    X = X,
+    beta_true = beta_true,
+    y = y,
+    y_true = y_true,
+    x = x,
+    x_beta = x_beta
+  ))
+>>>>>>> Stashed changes
 }
 
 
