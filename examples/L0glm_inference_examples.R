@@ -21,7 +21,7 @@ system.time(L0glm_infer <- L0glm.inference(L0glm_fit, level = 0.95, boot.repl = 
                                            control.iwls = ctrl.iwls, control.l0 = ctrl.l0,
                                            parallel = "snow", ncpus = 10))
 # Plot results
-plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm_fit, inference = L0glm_infer, a.true = sim$a,
+plot_benchmark(x = sim$x, y = y, fit = L0glm_fit, inference = L0glm_infer, a.true = sim$a,
                      main="Ground truth vs L0glm estimates (with ridge penalty)")
 }
 
