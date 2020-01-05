@@ -120,8 +120,8 @@ val.ind <- -train.ind
 mf <- stats::model.frame(formula = Label ~ .^2, data = breastCancerDS)
 mt <- attr(mf, "terms")
 X <- model.matrix(mt, mf, contrasts)
-X_train <- X[train.ind]
-X_val <- X[val.ind]
+X_train <- X[train.ind,]
+X_val <- X[val.ind,]
 dim(X) # 683 x 2925
 
 library(L0glm)
@@ -141,14 +141,17 @@ abline(v = L0glm.model$lambda.tune$best.lam)
 L0glm.preds <- binomial()$linkinv(X %*% L0glm.model$coefficients)
 # L0glm.preds <- L0glm.model$fitted.values
 sum(L0glm.model$coefficients!=0) # 3 !
+colnames(model.matrix(Label ~ .^2, data = breastCancerDS))[which(L0glm.model$coefficients!=0)] # 1, 2, 47
 L0glm.model$coefficients[L0glm.model$coefficients!=0]
 #    (Intercept) Cl.thickness.L   Bare.nuclei1
 #    0.8773344      6.9241845     -3.2228664
 
 perf.L0glm <- performance(prediction(L0glm.preds[val.ind], breastCancerDS$Label[val.ind]),"tpr","fpr")
+perf.L0glm <- performance(prediction(L0glm.preds, breastCancerDS$Label),"tpr","fpr")
 plot(perf.L0glm, colorize=FALSE, col = "red3", main = "ROC curve on validation set")
 abline(a = 0, b = 1, lty = 1, col = "grey40")
 
 auc = performance(prediction(L0glm.preds[val.ind], breastCancerDS$Label[val.ind]), measure = "auc")
+auc = performance(prediction(L0glm.preds, breastCancerDS$Label), measure = "auc")
 auc = auc@y.values[[1]]
-auc # 0.9911765
+auc # 0.9911765 using val data only, 0.9817 when using all data
