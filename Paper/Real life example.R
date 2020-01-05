@@ -17,7 +17,7 @@ L0glm.out <- L0glm(formula = "y ~ 0 + .", data = data.frame(X, y = y),
                    family = poisson(identity),
                    lambda = 1,
                    nonnegative = TRUE, normalize = FALSE)
-plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm.out, a.true = sim$a,
+plot_benchmark(x = sim$x, y = y, fit = L0glm.out, a.true = sim$a,
                      main="Ground truth vs L0 penalized L0glm estimates")
 graph2ppt(file = "D:/Documents/Dropbox/christophe/PPTs/190809 - lab presentation - files/Figures.pptx", append = T)
 
