@@ -44,7 +44,7 @@ L0glm.infer.out <- L0glm.inference(L0glm.out, level = 0.95, boot.repl = 1000,
                                    control.fit = ctrl.fit)
 
 # Plot the results
-plot_L0glm_benchmark(x = sim$x, y = y, fit = L0glm.out, a.true = sim$a,
+plot_benchmark(x = sim$x, y = y, fit = L0glm.out, a.true = sim$a,
                      # inference = L0glm.infer.out,
                      main = "Ground truth vs L0 penalized L0glm estimates")
 
@@ -649,7 +649,7 @@ plot.nnglm.benchmark(x = x, y = y, fit = nnglm_pois_L0, a.true = a,
                      main="Ground truth vs L0 penalized NNGLM estimates")
 glmnet.fit$coefficients = as.vector(glmnet.fit$beta)
 glmnet.fit$fitted.values = X %*% glmnet.fit$coefficients
-plot_L0glm_benchmark(x = x, y = y, fit = glmnet.fit, a.true = a,
+plot_benchmark(x = x, y = y, fit = glmnet.fit, a.true = a,
                      main="Ground truth vs L0 penalized NNGLM estimates")
 
 
@@ -985,7 +985,7 @@ system.time(L0glm.nu <- L0glm(X = X, y = y, family = poisson(identity),
                               control.fit = control.fit(constr = "nonneg"),
                               control.iwls = control.iwls(rel.tol = 1E-4, maxit = 50, thresh = 1E-4),
                               control.l0 = control.l0(rel.tol = 1E-4, maxit = 100)))
-plot_L0glm_benchmark(x = x, y = y, fit = L0glm.nu, a.true = a,
+plot_benchmark(x = x, y = y, fit = L0glm.nu, a.true = a,
                      main="Nested updates")
 
 
@@ -995,7 +995,7 @@ system.time(L0glm.su <- L0glm(X = X, y = y, family = poisson(identity),
                               control.fit = control.fit(constr = "nonneg"),
                               control.iwls = control.iwls(rel.tol = 1E-4, maxit = 1, thresh = 1E-4),
                               control.l0 = control.l0(rel.tol = 1E-4, maxit = 100)))
-plot_L0glm_benchmark(x = x, y = y, fit = L0glm.su, a.true = a,
+plot_benchmark(x = x, y = y, fit = L0glm.su, a.true = a,
                      main="Nested updates")
 
 # CCL: updating both AR and IWLS simultaneously lead to similar fit (maybe evn better)
@@ -1015,7 +1015,7 @@ L0glm <- L0glm(X = X, y = y, family = poisson(identity),
                control.fit = control.fit(constr = "nonneg"),
                control.iwls = control.iwls(rel.tol = 1E-4, maxit = 1, thresh = 1E-4),
                control.l0 = control.l0(rel.tol = 1E-4, maxit = 100))
-plot_L0glm_benchmark(x = x, y = y, fit = L0glm, a.true = a,
+plot_benchmark(x = x, y = y, fit = L0glm, a.true = a,
                      main="Nested updates")
 
 matplot(L0glm$lambda.tune$coefficients.lam, type = "l", lty = 1)
